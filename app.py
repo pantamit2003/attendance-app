@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# 🔹 STEP 4: PWA ENABLE (YEH NAYA CODE HAI)
+# 🔹 PWA ENABLE
 st.markdown("""
 <link rel="manifest" href="/static/manifest.json">
 <script>
@@ -27,7 +27,6 @@ if not os.path.exists(FILE):
 st.title("📸 PHOTO ATTENDANCE SYSTEM")
 
 name = st.text_input("Enter Your Name")
-
 photo = st.camera_input("Take Photo")
 
 if st.button("PUNCH ATTENDANCE"):
@@ -57,8 +56,19 @@ if st.button("PUNCH ATTENDANCE"):
             }
             df = df._append(new_row, ignore_index=True)
             df.to_csv(FILE, index=False)
-            st.success("✅ Attendance Punch Ho Gayi")
 
-st.subheader("📊 Today Attendance")
+            # ✅ USER KO SIRF SUCCESS MESSAGE
+            st.success("✅ Your punch is successful")
+
+# 🔐 ADMIN SECTION (TU USE KAREGA)
+st.divider()
+st.subheader("🔐 Admin Section")
+
 df = pd.read_csv(FILE)
-st.dataframe(df)
+
+st.download_button(
+    label="⬇️ Download Attendance CSV",
+    data=df.to_csv(index=False),
+    file_name="attendance.csv",
+    mime="text/csv"
+)
