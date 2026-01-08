@@ -26,6 +26,7 @@ if not os.path.exists(FILE):
 
 st.title("📸 PHOTO ATTENDANCE SYSTEM")
 
+# ================= USER SECTION =================
 name = st.text_input("Enter Your Name")
 photo = st.camera_input("Take Photo")
 
@@ -44,7 +45,6 @@ if st.button("PUNCH ATTENDANCE"):
 
         df = pd.read_csv(FILE)
 
-        # same day duplicate check
         if ((df["NAME"] == name) & (df["DATE"] == date)).any():
             st.error("Aaj already punch ho chuka hai")
         else:
@@ -57,18 +57,24 @@ if st.button("PUNCH ATTENDANCE"):
             df = df._append(new_row, ignore_index=True)
             df.to_csv(FILE, index=False)
 
-            # ✅ USER KO SIRF SUCCESS MESSAGE
+            # ✅ USER KO SIRF MESSAGE
             st.success("✅ Your punch is successful")
 
-# 🔐 ADMIN SECTION (TU USE KAREGA)
+# ================= ADMIN SECTION =================
 st.divider()
-st.subheader("🔐 Admin Section")
+st.subheader("🔐 Admin Login")
 
-df = pd.read_csv(FILE)
+admin_password = st.text_input("Enter Admin Password", type="password")
 
-st.download_button(
-    label="⬇️ Download Attendance CSV",
-    data=df.to_csv(index=False),
-    file_name="attendance.csv",
-    mime="text/csv"
-)
+# 🔑 CHANGE PASSWORD HERE
+if admin_password == "admin123":
+    st.success("Admin Access Granted")
+
+    df = pd.read_csv(FILE)
+
+    st.download_button(
+        label="⬇️ Download Attendance CSV",
+        data=df.to_csv(index=False),
+        file_name="attendance.csv",
+        mime="text/csv"
+    )
