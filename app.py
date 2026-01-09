@@ -36,21 +36,27 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
         math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# ================= AUTO GPS (NO BUTTON) =================
+# ================= AUTO GPS (FORCE RELOAD) =================
 st.markdown("""
 <script>
 (function(){
-  if (!navigator.geolocation) return;
+  if (!navigator.geolocation) {
+    alert("GPS not supported");
+    return;
+  }
 
   navigator.geolocation.getCurrentPosition(
     function(pos){
       const params = new URLSearchParams(window.location.search);
-      params.set("lat", pos.coords.latitude);
-      params.set("lon", pos.coords.longitude);
-      window.history.replaceState({}, "", location.pathname + "?" + params.toString());
+
+      if (!params.get("lat")) {
+        params.set("lat", pos.coords.latitude);
+        params.set("lon", pos.coords.longitude);
+        window.location.search = params.toString();
+      }
     },
-    function(err){
-      console.log("Location denied");
+    function(){
+      alert("❌ Location permission denied. Enable GPS.");
     },
     { enableHighAccuracy: true, timeout: 10000 }
   );
@@ -86,22 +92,22 @@ if not st.session_state.logged:
         else:
             st.error("❌ Invalid credentials")
 
-# ================= USER =================
+# ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
 
-    params = st.query_params
+    params = st.experimental_get_query_params()
 
     if "lat" not in params or "lon" not in params:
-        st.warning("📍 Location access required. Please enable GPS and refresh.")
+        st.warning("📍 Location access required. Please allow GPS & wait 2 seconds.")
         st.stop()
 
-    user_lat = float(params["lat"])
-    user_lon = float(params["lon"])
+    user_lat = float(params["lat"][0])
+    user_lon = float(params["lon"][0])
 
-    photo = st.camera_input("Take Photo")
+    photo = st.camera_input("📷 Take Photo")
 
-    if st.button("PUNCH ATTENDANCE"):
+    if st.button("✅ PUNCH ATTENDANCE"):
         if photo is None:
             st.error("❌ Photo required")
             st.stop()
@@ -112,7 +118,7 @@ if st.session_state.logged and not st.session_state.admin:
         dist = distance_in_meters(user_lat, user_lon, office_lat, office_lon)
 
         if dist > ALLOWED_DISTANCE:
-            st.error(f"❌ You are {int(dist)}m away from allowed location")
+            st.error(f"❌ You are {int(dist)} meters away from office")
             st.stop()
 
         now = datetime.now()
@@ -144,7 +150,7 @@ if st.session_state.logged and not st.session_state.admin:
 
         conn.close()
 
-# ================= ADMIN =================
+# ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
     st.subheader("👨‍💼 Admin Dashboard")
 
@@ -163,7 +169,7 @@ if st.session_state.logged and st.session_state.admin:
 
 # ================= LOGOUT =================
 if st.session_state.logged:
-    if st.button("Logout"):
+    if st.button("🚪 Logout"):
         st.session_state.logged = False
         st.session_state.user = None
         st.session_state.admin = False
