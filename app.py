@@ -7,7 +7,7 @@ import math
 # 📍 OFFICE LOCATION (CHANGE THIS)
 OFFICE_LAT = 28.41979
 OFFICE_LON = 77.03858
-ALLOWED_DISTANCE = 10  # meters
+ALLOWED_DISTANCE = 100  # meters
 
 # 🔹 PWA ENABLE
 st.markdown("""
@@ -111,3 +111,4 @@ if admin_password == "admin123":
         "attendance.csv",
         "text/csv"
     )
+
