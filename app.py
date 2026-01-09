@@ -36,10 +36,10 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
         math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# ================= AUTO GPS (FORCE RELOAD) =================
+# ================= JS GPS (MANUAL BUTTON) =================
 st.markdown("""
 <script>
-(function(){
+window.getLocation = function(){
   if (!navigator.geolocation) {
     alert("GPS not supported");
     return;
@@ -48,19 +48,16 @@ st.markdown("""
   navigator.geolocation.getCurrentPosition(
     function(pos){
       const params = new URLSearchParams(window.location.search);
-
-      if (!params.get("lat")) {
-        params.set("lat", pos.coords.latitude);
-        params.set("lon", pos.coords.longitude);
-        window.location.search = params.toString();
-      }
+      params.set("lat", pos.coords.latitude);
+      params.set("lon", pos.coords.longitude);
+      window.location.href = window.location.pathname + "?" + params.toString();
     },
     function(){
       alert("❌ Location permission denied. Enable GPS.");
     },
     { enableHighAccuracy: true, timeout: 10000 }
   );
-})();
+}
 </script>
 """, unsafe_allow_html=True)
 
@@ -96,10 +93,16 @@ if not st.session_state.logged:
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
 
+    # 🔘 GET LOCATION BUTTON
+    st.markdown(
+        '<button onclick="getLocation()" style="padding:10px 20px;font-size:16px;">📍 Get My Location</button>',
+        unsafe_allow_html=True
+    )
+
     params = st.experimental_get_query_params()
 
     if "lat" not in params or "lon" not in params:
-        st.warning("📍 Location access required. Please allow GPS & wait 2 seconds.")
+        st.warning("📍 Click **Get My Location** to continue")
         st.stop()
 
     user_lat = float(params["lat"][0])
@@ -118,7 +121,7 @@ if st.session_state.logged and not st.session_state.admin:
         dist = distance_in_meters(user_lat, user_lon, office_lat, office_lon)
 
         if dist > ALLOWED_DISTANCE:
-            st.error(f"❌ You are {int(dist)} meters away from office")
+            st.error(f"❌ You are {int(dist)} meters away from allowed location")
             st.stop()
 
         now = datetime.now()
@@ -173,4 +176,5 @@ if st.session_state.logged:
         st.session_state.logged = False
         st.session_state.user = None
         st.session_state.admin = False
+        st.experimental_set_query_params()
         st.rerun()
