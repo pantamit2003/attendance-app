@@ -9,15 +9,15 @@ import mysql.connector
 ALLOWED_DISTANCE = 100  # meters
 
 USERS = {
-    "amit":  {"password": "1234", "lat": 28.65880, "lon": 77.14402},   # Moti Nagar
-    "rahul": {"password": "1111", "lat": 28.41933, "lon": 77.03814},   # Gurgaon
+    "amit":  {"password": "1234", "lat": 28.65880, "lon": 77.14402},
+    "rahul": {"password": "1111", "lat": 28.41933, "lon": 77.03814},
     "neha":  {"password": "2222", "lat": 28.41933, "lon": 77.03814}
 }
 
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
-# ================= DATABASE =================
+# ================= DB =================
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -86,18 +86,6 @@ if not st.session_state.logged:
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
 
-    params = st.query_params
-
-    # 🔍 LOCATION STATUS
-    if "lat" in params and "lon" in params:
-        user_lat = float(params["lat"])
-        user_lon = float(params["lon"])
-        st.success("📍 Location detected")
-        st.caption(f"Lat: {user_lat} | Lon: {user_lon}")
-    else:
-        st.warning("📍 Waiting for location… allow location & refresh page")
-        st.stop()
-
     photo = st.camera_input("Take Photo")
 
     if st.button("PUNCH ATTENDANCE"):
@@ -105,13 +93,21 @@ if st.session_state.logged and not st.session_state.admin:
             st.warning("Photo required")
             st.stop()
 
+        params = st.query_params
+        if "lat" not in params or "lon" not in params:
+            st.error("❌ Location not detected")
+            st.stop()
+
+        user_lat = float(params["lat"])
+        user_lon = float(params["lon"])
+
         office_lat = USERS[st.session_state.user]["lat"]
         office_lon = USERS[st.session_state.user]["lon"]
 
         dist = distance_in_meters(user_lat, user_lon, office_lat, office_lon)
 
         if dist > ALLOWED_DISTANCE:
-            st.error(f"❌ Outside allowed location ({int(dist)} meters)")
+            st.error(f"❌ Outside allowed location ({int(dist)} m)")
             st.stop()
 
         now = datetime.now()
@@ -132,7 +128,6 @@ if st.session_state.logged and not st.session_state.admin:
             "SELECT COUNT(*) FROM attendance WHERE name=%s AND date=%s",
             (st.session_state.user, date)
         )
-
         if cur.fetchone()[0] > 0:
             st.error("❌ Already punched today")
         else:
@@ -141,7 +136,7 @@ if st.session_state.logged and not st.session_state.admin:
                 (date, st.session_state.user, time, path)
             )
             conn.commit()
-            st.success("✅ Attendance punched successfully")
+            st.success("✅ Attendance punched")
 
         conn.close()
 
@@ -149,7 +144,7 @@ if st.session_state.logged and not st.session_state.admin:
 if st.session_state.logged and st.session_state.admin:
     st.subheader("👨‍💼 Admin Dashboard")
 
-    option = st.selectbox("📅 View Attendance", ["Today", "Last 7 Days", "Last 30 Days"])
+    option = st.selectbox("View Attendance", ["Today", "Last 7 Days", "Last 30 Days"])
 
     today = datetime.now().date()
     if option == "Today":
@@ -173,7 +168,7 @@ if st.session_state.logged and st.session_state.admin:
     st.download_button(
         "⬇️ Download CSV",
         df.to_csv(index=False),
-        f"attendance_{start}_to_{end}.csv",
+        "attendance.csv",
         "text/csv"
     )
 
