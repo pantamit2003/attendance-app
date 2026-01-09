@@ -9,8 +9,8 @@ import mysql.connector
 ALLOWED_DISTANCE = 100  # meters
 
 USERS = {
-    "amit":  {"password": "1234", "lat": 28.65880, "lon": 77.14402},  # Moti Nagar
-    "rahul": {"password": "1111", "lat": 28.41933, "lon": 77.03814},  # Gurgaon
+    "amit":  {"password": "1234", "lat": 28.65880, "lon": 77.14402},
+    "rahul": {"password": "1111", "lat": 28.41933, "lon": 77.03814},
     "neha":  {"password": "2222", "lat": 28.41933, "lon": 77.03814}
 }
 
@@ -36,6 +36,28 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
         math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
+# ================= AUTO GPS (NO BUTTON) =================
+st.markdown("""
+<script>
+(function(){
+  if (!navigator.geolocation) return;
+
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      const params = new URLSearchParams(window.location.search);
+      params.set("lat", pos.coords.latitude);
+      params.set("lon", pos.coords.longitude);
+      window.history.replaceState({}, "", location.pathname + "?" + params.toString());
+    },
+    function(err){
+      console.log("Location denied");
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+})();
+</script>
+""", unsafe_allow_html=True)
+
 # ================= SESSION =================
 if "logged" not in st.session_state:
     st.session_state.logged = False
@@ -48,7 +70,6 @@ st.title("📸 GPS BASED ATTENDANCE SYSTEM")
 # ================= LOGIN =================
 if not st.session_state.logged:
     st.subheader("🔐 Login")
-
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
@@ -69,51 +90,14 @@ if not st.session_state.logged:
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
 
-    st.info("📍 Step 1: Click **Allow Location** button below")
-
-    # 🔴 EXPLICIT LOCATION BUTTON (MOST IMPORTANT)
-    st.markdown("""
-    <script>
-    function getLocation(){
-        navigator.geolocation.getCurrentPosition(
-            function(pos){
-                const params = new URLSearchParams(window.location.search);
-                params.set("lat", pos.coords.latitude);
-                params.set("lon", pos.coords.longitude);
-                window.location.search = params.toString();
-            },
-            function(err){
-                alert("❌ Location permission denied. Please allow GPS.");
-            }
-        );
-    }
-    </script>
-
-    <button onclick="getLocation()"
-    style="
-        padding:12px;
-        font-size:16px;
-        background:#00c853;
-        color:white;
-        border:none;
-        border-radius:6px;
-        cursor:pointer;
-    ">
-    📍 Allow Location
-    </button>
-    """, unsafe_allow_html=True)
-
-    st.divider()
-
     params = st.query_params
+
     if "lat" not in params or "lon" not in params:
-        st.warning("⏳ Waiting for GPS… Click **Allow Location** above")
+        st.warning("📍 Location access required. Please enable GPS and refresh.")
         st.stop()
 
     user_lat = float(params["lat"])
     user_lon = float(params["lon"])
-
-    st.success(f"📍 Location detected: {user_lat}, {user_lon}")
 
     photo = st.camera_input("Take Photo")
 
@@ -128,7 +112,7 @@ if st.session_state.logged and not st.session_state.admin:
         dist = distance_in_meters(user_lat, user_lon, office_lat, office_lon)
 
         if dist > ALLOWED_DISTANCE:
-            st.error(f"❌ You are {int(dist)}m away. Attendance blocked.")
+            st.error(f"❌ You are {int(dist)}m away from allowed location")
             st.stop()
 
         now = datetime.now()
@@ -149,7 +133,7 @@ if st.session_state.logged and not st.session_state.admin:
         )
 
         if cur.fetchone()[0] > 0:
-            st.error("❌ Already punched today")
+            st.error("❌ Attendance already punched today")
         else:
             cur.execute(
                 "INSERT INTO attendance (date,name,time,photo) VALUES (%s,%s,%s,%s)",
@@ -164,26 +148,8 @@ if st.session_state.logged and not st.session_state.admin:
 if st.session_state.logged and st.session_state.admin:
     st.subheader("👨‍💼 Admin Dashboard")
 
-    option = st.selectbox(
-        "📅 View Attendance",
-        ["Today", "Last 7 Days", "Last 30 Days"]
-    )
-
-    today = datetime.now().date()
-    if option == "Today":
-        start = end = today
-    elif option == "Last 7 Days":
-        start = today - pd.Timedelta(days=6)
-        end = today
-    else:
-        start = today - pd.Timedelta(days=29)
-        end = today
-
     conn = get_db_connection()
-    df = pd.read_sql(
-        "SELECT * FROM attendance WHERE date BETWEEN %s AND %s ORDER BY date DESC",
-        conn, params=(start, end)
-    )
+    df = pd.read_sql("SELECT * FROM attendance ORDER BY date DESC", conn)
     conn.close()
 
     st.dataframe(df, use_container_width=True)
