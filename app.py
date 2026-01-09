@@ -5,7 +5,7 @@ import math
 import os
 
 # ================= CONFIG =================
-ALLOWED_DISTANCE = 100  # meters
+ALLOWED_DISTANCE = 100
 CSV_FILE = "attendance.csv"
 
 USERS = {
@@ -17,9 +17,9 @@ USERS = {
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
-# ================= CSV HELPERS =================
+# ================= CSV =================
 def load_data():
-    cols = ["date", "name", "time", "photo", "lat", "lon"]
+    cols = ["date","name","punch_type","time","photo","lat","lon"]
     if os.path.exists(CSV_FILE):
         df = pd.read_csv(CSV_FILE)
         for c in cols:
@@ -42,7 +42,7 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
         math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# ================= JS GPS =================
+# ================= GPS =================
 st.markdown("""
 <script>
 function getLocation(){
@@ -53,10 +53,7 @@ function getLocation(){
       p.set("lon", pos.coords.longitude);
       window.location.search = p.toString();
     },
-    function(){
-      alert("❌ Location permission denied");
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
+    function(){ alert("Location denied"); }
   );
 }
 </script>
@@ -73,100 +70,99 @@ st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
 
 # ================= LOGIN =================
 if not st.session_state.logged:
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
     if st.button("Login"):
-        if username == ADMIN_USER and password == ADMIN_PASSWORD:
+        if u == ADMIN_USER and p == ADMIN_PASSWORD:
             st.session_state.logged = True
             st.session_state.admin = True
             st.rerun()
-        elif username in USERS and USERS[username]["password"] == password:
+        elif u in USERS and USERS[u]["password"] == p:
             st.session_state.logged = True
-            st.session_state.user = username
+            st.session_state.user = u
             st.rerun()
         else:
-            st.error("❌ Invalid credentials")
+            st.error("Invalid credentials")
 
-# ================= USER PANEL =================
+# ================= USER =================
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
 
-    st.markdown(
-        '<button onclick="getLocation()" style="padding:10px 20px;font-size:16px;">📍 Get My Location</button>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
 
     params = st.query_params
-    if "lat" not in params or "lon" not in params:
-        st.warning("📍 Please click **Get My Location**")
+    if "lat" not in params:
+        st.warning("Get location first")
         st.stop()
 
     lat = float(params["lat"])
     lon = float(params["lon"])
-
     photo = st.camera_input("📷 Take Photo")
 
-    if st.button("✅ PUNCH ATTENDANCE"):
-        if photo is None:
-            st.error("❌ Photo required")
-            st.stop()
-
-        office = USERS[st.session_state.user]
-        dist = distance_in_meters(lat, lon, office["lat"], office["lon"])
-
-        # 🔔 TOO FAR POPUP + MESSAGE
-        if dist > ALLOWED_DISTANCE:
-            st.markdown(f"""
-            <script>
-              alert("❌ Sorry, you are too far from your desired location. Distance: {int(dist)} meters");
-            </script>
-            """, unsafe_allow_html=True)
-
-            st.error("❌ Sorry, you are too far from your desired location")
-            st.stop()
-
-        now = datetime.now()
-        date = now.strftime("%Y-%m-%d")
-
-        df = load_data()
-        if not df.empty and ((df["name"] == st.session_state.user) & (df["date"] == date)).any():
-            st.error("❌ Attendance already punched today")
-            st.stop()
-
-        os.makedirs("photos", exist_ok=True)
-        path = f"photos/{st.session_state.user}_{now.strftime('%H%M%S')}.jpg"
-        with open(path, "wb") as f:
-            f.write(photo.getbuffer())
-
-        save_row({
-            "date": date,
-            "name": st.session_state.user,
-            "time": now.strftime("%H:%M:%S"),
-            "photo": path,
-            "lat": lat,
-            "lon": lon
-        })
-
-        st.success("✅ Attendance punched successfully")
-
-# ================= ADMIN PANEL =================
-if st.session_state.logged and st.session_state.admin:
-    st.subheader("👨‍💼 Admin Dashboard")
     df = load_data()
-    st.dataframe(df, use_container_width=True)
-    st.download_button(
-        "⬇️ Download CSV",
-        df.to_csv(index=False),
-        "attendance.csv",
-        "text/csv"
-    )
+    today = datetime.now().strftime("%Y-%m-%d")
+    user = st.session_state.user
+
+    already_in = ((df["name"]==user)&(df["date"]==today)&(df["punch_type"]=="IN")).any()
+    already_out = ((df["name"]==user)&(df["date"]==today)&(df["punch_type"]=="OUT")).any()
+
+    col1, col2 = st.columns(2)
+
+    # ================= PUNCH IN =================
+    with col1:
+        if st.button("✅ PUNCH IN"):
+            if already_in:
+                st.error("Already punched IN today")
+                st.stop()
+
+            office = USERS[user]
+            if distance_in_meters(lat, lon, office["lat"], office["lon"]) > ALLOWED_DISTANCE:
+                st.error("Too far from office")
+                st.stop()
+
+            now = datetime.now()
+            save_row({
+                "date": today,
+                "name": user,
+                "punch_type": "IN",
+                "time": now.strftime("%H:%M:%S"),
+                "photo": "photo",
+                "lat": lat,
+                "lon": lon
+            })
+            st.success("Punch IN successful")
+
+    # ================= PUNCH OUT =================
+    with col2:
+        if st.button("⛔ PUNCH OUT"):
+            if not already_in:
+                st.error("Punch IN first")
+                st.stop()
+            if already_out:
+                st.error("Already punched OUT")
+                st.stop()
+
+            now = datetime.now()
+            save_row({
+                "date": today,
+                "name": user,
+                "punch_type": "OUT",
+                "time": now.strftime("%H:%M:%S"),
+                "photo": "photo",
+                "lat": lat,
+                "lon": lon
+            })
+            st.success("Punch OUT successful")
+
+# ================= ADMIN =================
+if st.session_state.logged and st.session_state.admin:
+    df = load_data()
+    st.dataframe(df)
+    st.download_button("Download CSV", df.to_csv(index=False), "attendance.csv")
 
 # ================= LOGOUT =================
 if st.session_state.logged:
-    if st.button("🚪 Logout"):
+    if st.button("Logout"):
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
-
-
