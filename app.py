@@ -6,33 +6,18 @@ import os
 import mysql.connector
 
 # ================= CONFIG =================
+ALLOWED_DISTANCE = 100  # meters
 
-ALLOWED_DISTANCE = 100  # meters (STRICT)
-
-# 👤 USERS WITH FIXED LOCATIONS
 USERS = {
-    "amit": {
-        "password": "1234",
-        "lat": 28.65880,   # Moti Nagar
-        "lon": 77.14402
-    },
-    "rahul": {
-        "password": "1111",
-        "lat": 28.41933,   # Gurgaon
-        "lon": 77.03814
-    },
-    "neha": {
-        "password": "2222",
-        "lat": 28.41933,
-        "lon": 77.03814
-    }
+    "amit":  {"password": "1234", "lat": 28.65880, "lon": 77.14402},  # Moti Nagar
+    "rahul": {"password": "1111", "lat": 28.41933, "lon": 77.03814},  # Gurgaon
+    "neha":  {"password": "2222", "lat": 28.41933, "lon": 77.03814}
 }
 
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
-# ================= DATABASE =================
-
+# ================= DB =================
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -42,48 +27,25 @@ def get_db_connection():
         port=3306
     )
 
-# ================= DISTANCE FUNCTION =================
-
+# ================= DISTANCE =================
 def distance_in_meters(lat1, lon1, lat2, lon2):
     R = 6371000
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2)**2 + \
-        math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * \
-        math.sin(dlon / 2)**2
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * \
+        math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# ================= GPS FROM BROWSER =================
-
-st.markdown("""
-<script>
-navigator.geolocation.getCurrentPosition(
-  function(pos){
-    const params = new URLSearchParams(window.location.search);
-    params.set("lat", pos.coords.latitude);
-    params.set("lon", pos.coords.longitude);
-    window.history.replaceState({}, "", `${location.pathname}?${params}`);
-  },
-  function(){
-    alert("❌ Location permission required");
-  }
-);
-</script>
-""", unsafe_allow_html=True)
-
 # ================= SESSION =================
-
 if "logged" not in st.session_state:
     st.session_state.logged = False
     st.session_state.user = None
     st.session_state.admin = False
 
 # ================= UI =================
-
 st.title("📸 GPS BASED ATTENDANCE SYSTEM")
 
 # ================= LOGIN =================
-
 if not st.session_state.logged:
     st.subheader("🔐 Login")
 
@@ -91,93 +53,114 @@ if not st.session_state.logged:
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-
-        # ADMIN LOGIN
         if username == ADMIN_USER and password == ADMIN_PASSWORD:
             st.session_state.logged = True
             st.session_state.admin = True
             st.rerun()
 
-        # USER LOGIN
         elif username in USERS and USERS[username]["password"] == password:
             st.session_state.logged = True
             st.session_state.user = username
             st.rerun()
-
         else:
-            st.error("❌ Invalid username or password")
+            st.error("❌ Invalid credentials")
 
-# ================= USER DASHBOARD =================
-
+# ================= USER =================
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
 
-    params = st.query_params
+    st.info("📍 Step 1: Click **Allow Location** button below")
 
-    # 🔴 LOCATION MANDATORY
+    # 🔴 EXPLICIT LOCATION BUTTON (MOST IMPORTANT)
+    st.markdown("""
+    <script>
+    function getLocation(){
+        navigator.geolocation.getCurrentPosition(
+            function(pos){
+                const params = new URLSearchParams(window.location.search);
+                params.set("lat", pos.coords.latitude);
+                params.set("lon", pos.coords.longitude);
+                window.location.search = params.toString();
+            },
+            function(err){
+                alert("❌ Location permission denied. Please allow GPS.");
+            }
+        );
+    }
+    </script>
+
+    <button onclick="getLocation()"
+    style="
+        padding:12px;
+        font-size:16px;
+        background:#00c853;
+        color:white;
+        border:none;
+        border-radius:6px;
+        cursor:pointer;
+    ">
+    📍 Allow Location
+    </button>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+
+    params = st.query_params
     if "lat" not in params or "lon" not in params:
-        st.warning("📍 Detecting your location… Please allow GPS and refresh")
+        st.warning("⏳ Waiting for GPS… Click **Allow Location** above")
         st.stop()
 
     user_lat = float(params["lat"])
     user_lon = float(params["lon"])
 
-    st.success("📍 Location detected")
-    st.caption(f"Lat: {user_lat} | Lon: {user_lon}")
+    st.success(f"📍 Location detected: {user_lat}, {user_lon}")
 
     photo = st.camera_input("Take Photo")
 
     if st.button("PUNCH ATTENDANCE"):
         if photo is None:
-            st.warning("❌ Photo required")
+            st.error("❌ Photo required")
             st.stop()
 
         office_lat = USERS[st.session_state.user]["lat"]
         office_lon = USERS[st.session_state.user]["lon"]
 
-        distance = distance_in_meters(
-            user_lat, user_lon,
-            office_lat, office_lon
-        )
+        dist = distance_in_meters(user_lat, user_lon, office_lat, office_lon)
 
-        if distance > ALLOWED_DISTANCE:
-            st.error(f"❌ Outside allowed location ({int(distance)} meters)")
+        if dist > ALLOWED_DISTANCE:
+            st.error(f"❌ You are {int(dist)}m away. Attendance blocked.")
             st.stop()
 
         now = datetime.now()
         date = now.strftime("%Y-%m-%d")
         time = now.strftime("%H:%M:%S")
 
-        if not os.path.exists("photos"):
-            os.mkdir("photos")
-
-        photo_path = f"photos/{st.session_state.user}_{time.replace(':','')}.jpg"
-        with open(photo_path, "wb") as f:
+        os.makedirs("photos", exist_ok=True)
+        path = f"photos/{st.session_state.user}_{time.replace(':','')}.jpg"
+        with open(path, "wb") as f:
             f.write(photo.getbuffer())
 
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # DUPLICATE CHECK
         cur.execute(
             "SELECT COUNT(*) FROM attendance WHERE name=%s AND date=%s",
             (st.session_state.user, date)
         )
 
         if cur.fetchone()[0] > 0:
-            st.error("❌ Attendance already punched today")
+            st.error("❌ Already punched today")
         else:
             cur.execute(
                 "INSERT INTO attendance (date,name,time,photo) VALUES (%s,%s,%s,%s)",
-                (date, st.session_state.user, time, photo_path)
+                (date, st.session_state.user, time, path)
             )
             conn.commit()
             st.success("✅ Attendance punched successfully")
 
         conn.close()
 
-# ================= ADMIN DASHBOARD =================
-
+# ================= ADMIN =================
 if st.session_state.logged and st.session_state.admin:
     st.subheader("👨‍💼 Admin Dashboard")
 
@@ -187,7 +170,6 @@ if st.session_state.logged and st.session_state.admin:
     )
 
     today = datetime.now().date()
-
     if option == "Today":
         start = end = today
     elif option == "Last 7 Days":
@@ -207,14 +189,13 @@ if st.session_state.logged and st.session_state.admin:
     st.dataframe(df, use_container_width=True)
 
     st.download_button(
-        "⬇️ Download Attendance CSV",
+        "⬇️ Download CSV",
         df.to_csv(index=False),
-        f"attendance_{start}_to_{end}.csv",
+        "attendance.csv",
         "text/csv"
     )
 
 # ================= LOGOUT =================
-
 if st.session_state.logged:
     if st.button("Logout"):
         st.session_state.logged = False
