@@ -19,7 +19,7 @@ ADMIN_PASSWORD = "admin123"
 
 # ================= CSV HELPERS =================
 def load_data():
-    cols = ["date","name","time","photo","lat","lon"]
+    cols = ["date", "name", "time", "photo", "lat", "lon"]
     if os.path.exists(CSV_FILE):
         df = pd.read_csv(CSV_FILE)
         for c in cols:
@@ -53,7 +53,10 @@ function getLocation(){
       p.set("lon", pos.coords.longitude);
       window.location.search = p.toString();
     },
-    function(){ alert("❌ Location permission denied"); }
+    function(){
+      alert("❌ Location permission denied");
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
   );
 }
 </script>
@@ -70,28 +73,33 @@ st.title("📸 GPS BASED ATTENDANCE SYSTEM")
 
 # ================= LOGIN =================
 if not st.session_state.logged:
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
     if st.button("Login"):
-        if u == ADMIN_USER and p == ADMIN_PASSWORD:
+        if username == ADMIN_USER and password == ADMIN_PASSWORD:
             st.session_state.logged = True
             st.session_state.admin = True
             st.rerun()
-        elif u in USERS and USERS[u]["password"] == p:
+        elif username in USERS and USERS[username]["password"] == password:
             st.session_state.logged = True
-            st.session_state.user = u
+            st.session_state.user = username
             st.rerun()
         else:
-            st.error("Invalid credentials")
+            st.error("❌ Invalid credentials")
 
 # ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
-    st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<button onclick="getLocation()" style="padding:10px 20px;font-size:16px;">📍 Get My Location</button>',
+        unsafe_allow_html=True
+    )
 
     params = st.query_params
     if "lat" not in params or "lon" not in params:
-        st.warning("Click Get My Location")
+        st.warning("📍 Please click **Get My Location**")
         st.stop()
 
     lat = float(params["lat"])
@@ -101,26 +109,34 @@ if st.session_state.logged and not st.session_state.admin:
 
     if st.button("✅ PUNCH ATTENDANCE"):
         if photo is None:
-            st.error("Photo required")
+            st.error("❌ Photo required")
             st.stop()
 
         office = USERS[st.session_state.user]
         dist = distance_in_meters(lat, lon, office["lat"], office["lon"])
+
+        # 🔔 TOO FAR POPUP + MESSAGE
         if dist > ALLOWED_DISTANCE:
-            st.error(f"Too far: {int(dist)} m")
+            st.markdown(f"""
+            <script>
+              alert("❌ Sorry, you are too far from your desired location. Distance: {int(dist)} meters");
+            </script>
+            """, unsafe_allow_html=True)
+
+            st.error("❌ Sorry, you are too far from your desired location")
             st.stop()
 
         now = datetime.now()
         date = now.strftime("%Y-%m-%d")
 
         df = load_data()
-        if not df.empty and ((df["name"]==st.session_state.user)&(df["date"]==date)).any():
-            st.error("Already punched today")
+        if not df.empty and ((df["name"] == st.session_state.user) & (df["date"] == date)).any():
+            st.error("❌ Attendance already punched today")
             st.stop()
 
         os.makedirs("photos", exist_ok=True)
         path = f"photos/{st.session_state.user}_{now.strftime('%H%M%S')}.jpg"
-        with open(path,"wb") as f:
+        with open(path, "wb") as f:
             f.write(photo.getbuffer())
 
         save_row({
@@ -132,17 +148,23 @@ if st.session_state.logged and not st.session_state.admin:
             "lon": lon
         })
 
-        st.success("Attendance punched ✅")
+        st.success("✅ Attendance punched successfully")
 
-# ================= ADMIN =================
+# ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
+    st.subheader("👨‍💼 Admin Dashboard")
     df = load_data()
-    st.dataframe(df)
-    st.download_button("⬇️ Download CSV", df.to_csv(index=False), "attendance.csv")
+    st.dataframe(df, use_container_width=True)
+    st.download_button(
+        "⬇️ Download CSV",
+        df.to_csv(index=False),
+        "attendance.csv",
+        "text/csv"
+    )
 
 # ================= LOGOUT =================
 if st.session_state.logged:
-    if st.button("Logout"):
+    if st.button("🚪 Logout"):
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
