@@ -1,114 +1,186 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
 import math
+import os
+import mysql.connector
 
-# 📍 OFFICE LOCATION (CHANGE THIS)
-OFFICE_LAT = 28.41979
-OFFICE_LON = 77.03858
+# ================= CONFIG =================
 ALLOWED_DISTANCE = 100  # meters
 
-# 🔹 PWA ENABLE
-st.markdown("""
-<link rel="manifest" href="/static/manifest.json">
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/static/service-worker.js');
+USERS = {
+    "amit":  {"password": "1234", "lat": 28.65880, "lon": 77.14402},   # Moti Nagar
+    "rahul": {"password": "1111", "lat": 28.41933, "lon": 77.03814},   # Gurgaon
+    "neha":  {"password": "2222", "lat": 28.41933, "lon": 77.03814}
 }
 
+ADMIN_USER = "admin"
+ADMIN_PASSWORD = "admin123"
+
+# ================= DATABASE =================
+def get_db_connection():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="root@123",
+        database="attendance_db",
+        port=3306
+    )
+
+# ================= DISTANCE =================
+def distance_in_meters(lat1, lon1, lat2, lon2):
+    R = 6371000
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * \
+        math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+# ================= GPS FROM BROWSER =================
+st.markdown("""
+<script>
 navigator.geolocation.getCurrentPosition(
-  function(position) {
-    document.cookie = "lat=" + position.coords.latitude;
-    document.cookie = "lon=" + position.coords.longitude;
+  function(pos){
+    const params = new URLSearchParams(window.location.search);
+    params.set("lat", pos.coords.latitude);
+    params.set("lon", pos.coords.longitude);
+    window.history.replaceState({}, "", `${location.pathname}?${params}`);
   },
-  function(error) {
-    alert("❌ Location permission is required");
+  function(){
+    alert("❌ Location permission required");
   }
 );
 </script>
 """, unsafe_allow_html=True)
 
-def distance_in_meters(lat1, lon1, lat2, lon2):
-    R = 6371000
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
+# ================= SESSION =================
+if "logged" not in st.session_state:
+    st.session_state.logged = False
+    st.session_state.user = None
+    st.session_state.admin = False
 
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
+# ================= UI =================
+st.title("📸 ATTENDANCE SYSTEM")
 
-# folders
-if not os.path.exists("photos"):
-    os.mkdir("photos")
+# ================= LOGIN =================
+if not st.session_state.logged:
+    st.subheader("🔐 Login")
 
-FILE = "attendance.csv"
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
-if not os.path.exists(FILE):
-    pd.DataFrame(columns=["DATE", "NAME", "TIME", "PHOTO"]).to_csv(FILE, index=False)
+    if st.button("Login"):
+        if username == ADMIN_USER and password == ADMIN_PASSWORD:
+            st.session_state.logged = True
+            st.session_state.admin = True
+            st.rerun()
 
-st.title("📸 PHOTO ATTENDANCE SYSTEM")
+        elif username in USERS and USERS[username]["password"] == password:
+            st.session_state.logged = True
+            st.session_state.user = username
+            st.rerun()
+        else:
+            st.error("❌ Invalid credentials")
 
-name = st.text_input("Enter Your Name")
-photo = st.camera_input("Take Photo")
+# ================= USER =================
+if st.session_state.logged and not st.session_state.admin:
+    st.subheader(f"👤 Welcome {st.session_state.user}")
 
-if st.button("PUNCH ATTENDANCE"):
-    if name == "" or photo is None:
-        st.warning("Name aur Photo dono required hai")
+    params = st.query_params
+
+    # 🔍 LOCATION STATUS
+    if "lat" in params and "lon" in params:
+        user_lat = float(params["lat"])
+        user_lon = float(params["lon"])
+        st.success("📍 Location detected")
+        st.caption(f"Lat: {user_lat} | Lon: {user_lon}")
     else:
-        # 🔐 LOCATION CHECK
-        lat = st.experimental_get_query_params().get("lat")
-        lon = st.experimental_get_query_params().get("lon")
+        st.warning("📍 Waiting for location… allow location & refresh page")
+        st.stop()
 
-        if lat is None or lon is None:
-            st.error("❌ Location not detected. Please refresh and allow location.")
+    photo = st.camera_input("Take Photo")
+
+    if st.button("PUNCH ATTENDANCE"):
+        if photo is None:
+            st.warning("Photo required")
             st.stop()
 
-        user_lat = float(lat[0])
-        user_lon = float(lon[0])
+        office_lat = USERS[st.session_state.user]["lat"]
+        office_lon = USERS[st.session_state.user]["lon"]
 
-        dist = distance_in_meters(user_lat, user_lon, OFFICE_LAT, OFFICE_LON)
+        dist = distance_in_meters(user_lat, user_lon, office_lat, office_lon)
 
         if dist > ALLOWED_DISTANCE:
-            st.error("❌ You are outside the allowed 10 meter location. Attendance blocked.")
+            st.error(f"❌ Outside allowed location ({int(dist)} meters)")
             st.stop()
 
         now = datetime.now()
         date = now.strftime("%Y-%m-%d")
         time = now.strftime("%H:%M:%S")
 
-        photo_name = f"photos/{name}_{time.replace(':','')}.jpg"
-        with open(photo_name, "wb") as f:
+        if not os.path.exists("photos"):
+            os.mkdir("photos")
+
+        path = f"photos/{st.session_state.user}_{time.replace(':','')}.jpg"
+        with open(path, "wb") as f:
             f.write(photo.getbuffer())
 
-        df = pd.read_csv(FILE)
+        conn = get_db_connection()
+        cur = conn.cursor()
 
-        if ((df["NAME"] == name) & (df["DATE"] == date)).any():
-            st.error("Aaj already punch ho chuka hai")
+        cur.execute(
+            "SELECT COUNT(*) FROM attendance WHERE name=%s AND date=%s",
+            (st.session_state.user, date)
+        )
+
+        if cur.fetchone()[0] > 0:
+            st.error("❌ Already punched today")
         else:
-            df = df._append({
-                "DATE": date,
-                "NAME": name,
-                "TIME": time,
-                "PHOTO": photo_name
-            }, ignore_index=True)
-            df.to_csv(FILE, index=False)
+            cur.execute(
+                "INSERT INTO attendance (date,name,time,photo) VALUES (%s,%s,%s,%s)",
+                (date, st.session_state.user, time, path)
+            )
+            conn.commit()
+            st.success("✅ Attendance punched successfully")
 
-            st.success("✅ Your punch is successful")
+        conn.close()
 
 # ================= ADMIN =================
-st.divider()
-st.subheader("🔐 Admin Login")
+if st.session_state.logged and st.session_state.admin:
+    st.subheader("👨‍💼 Admin Dashboard")
 
-admin_password = st.text_input("Enter Admin Password", type="password")
-if admin_password == "admin123":
-    df = pd.read_csv(FILE)
+    option = st.selectbox("📅 View Attendance", ["Today", "Last 7 Days", "Last 30 Days"])
+
+    today = datetime.now().date()
+    if option == "Today":
+        start = end = today
+    elif option == "Last 7 Days":
+        start = today - pd.Timedelta(days=6)
+        end = today
+    else:
+        start = today - pd.Timedelta(days=29)
+        end = today
+
+    conn = get_db_connection()
+    df = pd.read_sql(
+        "SELECT * FROM attendance WHERE date BETWEEN %s AND %s ORDER BY date DESC",
+        conn, params=(start, end)
+    )
+    conn.close()
+
+    st.dataframe(df, use_container_width=True)
+
     st.download_button(
-        "⬇️ Download Attendance CSV",
+        "⬇️ Download CSV",
         df.to_csv(index=False),
-        "attendance.csv",
+        f"attendance_{start}_to_{end}.csv",
         "text/csv"
     )
 
+# ================= LOGOUT =================
+if st.session_state.logged:
+    if st.button("Logout"):
+        st.session_state.logged = False
+        st.session_state.user = None
+        st.session_state.admin = False
+        st.rerun()
