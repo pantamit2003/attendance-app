@@ -9,7 +9,7 @@ ALLOWED_DISTANCE = 100  # meters
 CSV_FILE = "attendance.csv"
 
 USERS = {
-    "amit":  {"password": "1234", "lat": 28.65880, "lon": 77.14402},
+    "amit":  {"password": "1234", "lat": 28.62591, "lon": 77.20905},
     "rahul": {"password": "1111", "lat": 28.41933, "lon": 77.03814},
     "neha":  {"password": "2222", "lat": 28.41933, "lon": 77.03814}
 }
@@ -168,3 +168,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
