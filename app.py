@@ -3,10 +3,10 @@ import pandas as pd
 from datetime import datetime
 import math
 import os
-import mysql.connector
 
 # ================= CONFIG =================
 ALLOWED_DISTANCE = 100  # meters
+CSV_FILE = "attendance.csv"
 
 USERS = {
     "amit":  {"password": "1234", "lat": 28.65880, "lon": 77.14402},
@@ -17,16 +17,6 @@ USERS = {
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
-# ================= DB =================
-def get_db_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="root@123",
-        database="attendance_db",
-        port=3306
-    )
-
 # ================= DISTANCE =================
 def distance_in_meters(lat1, lon1, lat2, lon2):
     R = 6371000
@@ -36,30 +26,17 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
         math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# ================= JS GPS (MANUAL BUTTON) =================
-st.markdown("""
-<script>
-window.getLocation = function(){
-  if (!navigator.geolocation) {
-    alert("GPS not supported");
-    return;
-  }
+# ================= CSV HELPERS =================
+def load_data():
+    if os.path.exists(CSV_FILE):
+        return pd.read_csv(CSV_FILE)
+    else:
+        return pd.DataFrame(columns=["date","name","time","photo","lat","lon"])
 
-  navigator.geolocation.getCurrentPosition(
-    function(pos){
-      const params = new URLSearchParams(window.location.search);
-      params.set("lat", pos.coords.latitude);
-      params.set("lon", pos.coords.longitude);
-      window.location.href = window.location.pathname + "?" + params.toString();
-    },
-    function(){
-      alert("❌ Location permission denied. Enable GPS.");
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
-}
-</script>
-""", unsafe_allow_html=True)
+def save_attendance(row):
+    df = load_data()
+    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+    df.to_csv(CSV_FILE, index=False)
 
 # ================= SESSION =================
 if "logged" not in st.session_state:
@@ -93,20 +70,13 @@ if not st.session_state.logged:
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
 
-    # 🔘 GET LOCATION BUTTON
-    st.markdown(
-        '<button onclick="getLocation()" style="padding:10px 20px;font-size:16px;">📍 Get My Location</button>',
-        unsafe_allow_html=True
-    )
-
-    params = st.experimental_get_query_params()
-
+    params = st.query_params
     if "lat" not in params or "lon" not in params:
-        st.warning("📍 Click **Get My Location** to continue")
+        st.error("📍 Location not received. Please open GPS link first.")
         st.stop()
 
-    user_lat = float(params["lat"][0])
-    user_lon = float(params["lon"][0])
+    user_lat = float(params["lat"])
+    user_lon = float(params["lon"])
 
     photo = st.camera_input("📷 Take Photo")
 
@@ -117,7 +87,6 @@ if st.session_state.logged and not st.session_state.admin:
 
         office_lat = USERS[st.session_state.user]["lat"]
         office_lon = USERS[st.session_state.user]["lon"]
-
         dist = distance_in_meters(user_lat, user_lon, office_lat, office_lon)
 
         if dist > ALLOWED_DISTANCE:
@@ -128,39 +97,32 @@ if st.session_state.logged and not st.session_state.admin:
         date = now.strftime("%Y-%m-%d")
         time = now.strftime("%H:%M:%S")
 
+        df = load_data()
+        if not df.empty and ((df["name"] == st.session_state.user) & (df["date"] == date)).any():
+            st.error("❌ Attendance already punched today")
+            st.stop()
+
         os.makedirs("photos", exist_ok=True)
         path = f"photos/{st.session_state.user}_{time.replace(':','')}.jpg"
         with open(path, "wb") as f:
             f.write(photo.getbuffer())
 
-        conn = get_db_connection()
-        cur = conn.cursor()
+        save_attendance({
+            "date": date,
+            "name": st.session_state.user,
+            "time": time,
+            "photo": path,
+            "lat": user_lat,
+            "lon": user_lon
+        })
 
-        cur.execute(
-            "SELECT COUNT(*) FROM attendance WHERE name=%s AND date=%s",
-            (st.session_state.user, date)
-        )
-
-        if cur.fetchone()[0] > 0:
-            st.error("❌ Attendance already punched today")
-        else:
-            cur.execute(
-                "INSERT INTO attendance (date,name,time,photo) VALUES (%s,%s,%s,%s)",
-                (date, st.session_state.user, time, path)
-            )
-            conn.commit()
-            st.success("✅ Attendance punched successfully")
-
-        conn.close()
+        st.success("✅ Attendance punched successfully")
 
 # ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
     st.subheader("👨‍💼 Admin Dashboard")
 
-    conn = get_db_connection()
-    df = pd.read_sql("SELECT * FROM attendance ORDER BY date DESC", conn)
-    conn.close()
-
+    df = load_data()
     st.dataframe(df, use_container_width=True)
 
     st.download_button(
@@ -176,5 +138,5 @@ if st.session_state.logged:
         st.session_state.logged = False
         st.session_state.user = None
         st.session_state.admin = False
-        st.experimental_set_query_params()
+        st.query_params.clear()
         st.rerun()
