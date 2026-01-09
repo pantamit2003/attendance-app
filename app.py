@@ -69,7 +69,7 @@ if "logged" not in st.session_state:
     st.session_state.admin = False
 
 # ================= UI =================
-st.title("📸 GPS BASED ATTENDANCE SYSTEM")
+st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
 
 # ================= LOGIN =================
 if not st.session_state.logged:
@@ -168,4 +168,5 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
