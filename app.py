@@ -5,7 +5,7 @@ import math
 import os
 
 # ================= CONFIG =================
-ALLOWED_DISTANCE = 100
+ALLOWED_DISTANCE = 300
 CSV_FILE = "attendance.csv"
 
 USERS = {
@@ -166,5 +166,6 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
