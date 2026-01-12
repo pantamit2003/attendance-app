@@ -5,14 +5,13 @@ from datetime import datetime
 import math
 import os
 import uuid
-import base64
 from PIL import Image
 
 # ================= CONFIG =================
 ALLOWED_DISTANCE = 300  # meters
 CSV_FILE = "attendance.csv"
 PHOTO_DIR = "photos"
-PHOTO_RETENTION_DAYS = 7  # auto delete photos after 7 days
+PHOTO_RETENTION_DAYS = 7  # 🔥 auto delete photos after 7 days
 
 USERS = {
     "amit":  {"password": "1234", "lat": 28.743349, "lon": 77.116950},
@@ -26,55 +25,25 @@ ADMIN_PASSWORD = "admin123"
 
 IST = pytz.timezone("Asia/Kolkata")
 
-# ================= BACKGROUND IMAGE =================
-def set_background(image_path):
-    if not os.path.exists(image_path):
-        return
-
-    with open(image_path, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpg;base64,{encoded}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
-        .stApp::before {{
-            content: "";
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.45);
-            z-index: -1;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-set_background("static/bg.jpg")
-
 # ================= AUTO PHOTO CLEANUP =================
 def cleanup_old_photos():
     if not os.path.exists(PHOTO_DIR):
         return
 
     now = datetime.now().timestamp()
-    limit = PHOTO_RETENTION_DAYS * 24 * 60 * 60
+    retention_seconds = PHOTO_RETENTION_DAYS * 24 * 60 * 60
 
     for file in os.listdir(PHOTO_DIR):
         path = os.path.join(PHOTO_DIR, file)
         if os.path.isfile(path):
-            if now - os.path.getmtime(path) > limit:
+            age = now - os.path.getmtime(path)
+            if age > retention_seconds:
                 try:
                     os.remove(path)
-                except:
+                except Exception:
                     pass
 
-cleanup_old_photos()
+cleanup_old_photos()  # 🔥 app start hote hi cleanup
 
 # ================= CSV =================
 def load_data():
@@ -95,19 +64,21 @@ def save_row(row):
 
 # ================= PHOTO SAVE =================
 def save_photo(photo):
+    if photo is None:
+        return ""
     os.makedirs(PHOTO_DIR, exist_ok=True)
     img = Image.open(photo)
-    name = f"{uuid.uuid4()}.jpg"
-    img.save(os.path.join(PHOTO_DIR, name))
-    return name
+    filename = f"{uuid.uuid4()}.jpg"
+    img.save(os.path.join(PHOTO_DIR, filename))
+    return filename
 
 # ================= DISTANCE =================
 def distance_in_meters(lat1, lon1, lat2, lon2):
     R = 6371000
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) \
-        * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * \
+        math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 # ================= GPS =================
@@ -179,17 +150,17 @@ if st.session_state.logged and not st.session_state.admin:
     with col1:
         if st.button("✅ PUNCH IN"):
             if photo is None:
-                st.error("📷 Photo compulsory hai")
+                st.error("📷 Photo lena compulsory hai")
                 st.stop()
 
             if already_in:
-                st.error("Already punched IN")
+                st.error("Already punched IN today")
                 st.stop()
 
             dist = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
             if dist > ALLOWED_DISTANCE:
-                st.error("❌ Aap office location par nahi ho")
-                st.info(f"📏 Distance: {int(dist)} meters")
+                st.error("❌ Aap office / warehouse location par nahi ho")
+                st.info(f"📏 Aap approx {int(dist)} meters door ho")
                 st.stop()
 
             save_row({
@@ -207,7 +178,7 @@ if st.session_state.logged and not st.session_state.admin:
     with col2:
         if st.button("⛔ PUNCH OUT"):
             if photo is None:
-                st.error("📷 Photo compulsory hai")
+                st.error("📷 Photo lena compulsory hai")
                 st.stop()
 
             if not already_in or already_out:
@@ -216,8 +187,8 @@ if st.session_state.logged and not st.session_state.admin:
 
             dist = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
             if dist > ALLOWED_DISTANCE:
-                st.error("❌ Aap office location par nahi ho")
-                st.info(f"📏 Distance: {int(dist)} meters")
+                st.error("❌ Aap office / warehouse location par nahi ho")
+                st.info(f"📏 Aap approx {int(dist)} meters door ho")
                 st.stop()
 
             save_row({
@@ -233,8 +204,6 @@ if st.session_state.logged and not st.session_state.admin:
 
 # ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
-    st.subheader("🧑‍💼 Admin Dashboard")
-
     df = load_data()
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     today = datetime.now(IST).date()
@@ -242,36 +211,31 @@ if st.session_state.logged and st.session_state.admin:
     tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
     with tab1:
-        f = st.selectbox("📅 Filter",
+        filter = st.selectbox("📅 Date Filter",
             ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"])
 
-        if f == "Today":
+        if filter == "Today":
             filtered_df = df[df["date"].dt.date == today]
-        elif f == "Last 1 Day":
+        elif filter == "Last 1 Day":
             filtered_df = df[df["date"].dt.date == today - pd.Timedelta(days=1)]
-        elif f == "Last 7 Days":
-            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) &
-                             (df["date"].dt.date <= today)]
+        elif filter == "Last 7 Days":
+            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) & (df["date"].dt.date <= today)]
         else:
             s, e = st.columns(2)
             start = s.date_input("Start", today - pd.Timedelta(days=7))
             end = e.date_input("End", today)
-            filtered_df = df[(df["date"].dt.date >= start) &
-                             (df["date"].dt.date <= end)]
+            filtered_df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
 
         st.dataframe(filtered_df)
-        st.download_button("⬇️ Download CSV",
-            filtered_df.to_csv(index=False), "attendance.csv")
+        st.download_button("⬇️ Download CSV", filtered_df.to_csv(index=False), "attendance.csv")
 
     with tab2:
         st.subheader("📸 Attendance Photos")
-        for _, r in filtered_df.iterrows():
-            if r["photo"]:
-                path = os.path.join(PHOTO_DIR, r["photo"])
+        for _, row in filtered_df.iterrows():
+            if row["photo"]:
+                path = os.path.join(PHOTO_DIR, row["photo"])
                 if os.path.exists(path):
-                    st.image(path,
-                        caption=f"{r['name']} | {r['date'].date()} | {r['punch_type']}",
-                        width=220)
+                    st.image(path, caption=f"{row['name']} | {row['date'].date()} | {row['punch_type']}", width=220)
 
 # ================= LOGOUT =================
 if st.session_state.logged:
