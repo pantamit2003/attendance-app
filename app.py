@@ -15,7 +15,8 @@ PHOTO_DIR = "photos"
 USERS = {
     "amit":  {"password": "1234", "lat": 28.743349, "lon": 77.116950},
     "rahul": {"password": "1111", "lat": 28.419466, "lon": 77.038072},
-    "neha":  {"password": "2222", "lat": 28.419466, "lon": 77.038072}
+    "neha":  {"password": "2222", "lat": 28.419466, "lon": 77.038072},
+    "dep":  {"password": "1456", "lat": 28.502959, "lon": 77.185798}
 }
 
 ADMIN_USER = "admin"
@@ -227,3 +228,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
