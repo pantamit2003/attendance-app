@@ -1,47 +1,29 @@
 import streamlit as st
 import pandas as pd
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime
 import math
 import os
 import uuid
 from PIL import Image
 
 # ================= CONFIG =================
-ALLOWED_DISTANCE = 300  # meters
+ALLOWED_DISTANCE = 300
 CSV_FILE = "attendance.csv"
 PHOTO_DIR = "photos"
-PHOTO_RETENTION_DAYS = 7   # 🔥 AUTO DELETE AFTER 7 DAYS
 
 USERS = {
     "amit":  {"password": "1234", "lat": 28.743349, "lon": 77.116950},
     "rahul": {"password": "1111", "lat": 28.419466, "lon": 77.038072},
-    "neha":  {"password": "2222", "lat": 28.419466, "lon": 77.038072},
-    "deepak":{"password": "1256", "lat": 28.543400, "lon": 77.208290}
+    "neha":  {"password": "2222", "lat": 28.419466, "lon": 77.038072}
 }
 
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
+
 IST = pytz.timezone("Asia/Kolkata")
 
-# ================= PHOTO CLEANUP (NEW) =================
-def cleanup_old_photos(days=PHOTO_RETENTION_DAYS):
-    if not os.path.exists(PHOTO_DIR):
-        return
-
-    cutoff_time = datetime.now() - timedelta(days=days)
-
-    for file in os.listdir(PHOTO_DIR):
-        path = os.path.join(PHOTO_DIR, file)
-        if os.path.isfile(path):
-            created_time = datetime.fromtimestamp(os.path.getctime(path))
-            if created_time < cutoff_time:
-                os.remove(path)
-
-# 🔥 RUN CLEANUP ON APP START
-cleanup_old_photos()
-
-# ================= CSV FUNCTIONS =================
+# ================= CSV =================
 def load_data():
     cols = ["date","name","punch_type","time","photo","lat","lon"]
     if os.path.exists(CSV_FILE):
@@ -64,7 +46,7 @@ def save_photo(photo):
     os.makedirs(PHOTO_DIR, exist_ok=True)
     img = Image.open(photo)
     filename = f"{uuid.uuid4()}.jpg"
-    img.save(os.path.join(PHOTO_DIR, filename), optimize=True, quality=40)  # 🔥 COMPRESSED
+    img.save(os.path.join(PHOTO_DIR, filename))
     return filename
 
 # ================= DISTANCE =================
@@ -76,7 +58,7 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
         math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# ================= GPS SCRIPT =================
+# ================= GPS =================
 st.markdown("""
 <script>
 function getLocation(){
@@ -118,7 +100,7 @@ if not st.session_state.logged:
         else:
             st.error("Invalid credentials")
 
-# ================= USER PANEL =================
+# ================= USER =================
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
     st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
@@ -144,13 +126,10 @@ if st.session_state.logged and not st.session_state.admin:
     with col1:
         if st.button("✅ PUNCH IN"):
             if already_in:
-                st.error("Already punched IN today")
+                st.error("Already punched IN")
                 st.stop()
-
-            distance = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
-            if distance > ALLOWED_DISTANCE:
-                st.error("❌ Aap apni office / warehouse location par nahi ho")
-                st.info(f"📏 Aap approx {int(distance)} meters door ho")
+            if distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"]) > ALLOWED_DISTANCE:
+                st.error("Too far from office")
                 st.stop()
 
             save_row({
@@ -180,3 +159,61 @@ if st.session_state.logged and not st.session_state.admin:
                 "lon": lon
             })
             st.success("Punch OUT successful")
+
+# ================= ADMIN =================
+if st.session_state.logged and st.session_state.admin:
+    df = load_data()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    today = datetime.now(IST).date()
+
+    tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
+
+    # ---------- TABLE TAB ----------
+    with tab1:
+        filter_type = st.selectbox("📅 Date Filter",
+            ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"])
+
+        if filter_type == "Today":
+            filtered_df = df[df["date"].dt.date == today]
+        elif filter_type == "Last 1 Day":
+            filtered_df = df[df["date"].dt.date == (today - pd.Timedelta(days=1))]
+        elif filter_type == "Last 7 Days":
+            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) & (df["date"].dt.date <= today)]
+        else:
+            c1, c2 = st.columns(2)
+            start = c1.date_input("Start Date", today - pd.Timedelta(days=7))
+            end = c2.date_input("End Date", today)
+            filtered_df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
+
+        st.dataframe(filtered_df)
+        st.download_button("⬇️ Download CSV", filtered_df.to_csv(index=False), "attendance.csv")
+
+    # ---------- PHOTOS TAB ----------
+    with tab2:
+        st.subheader("📸 Attendance Photos")
+        punch_filter = st.selectbox("Punch Type", ["All", "IN", "OUT"])
+
+        photo_df = filtered_df.copy()
+        if punch_filter != "All":
+            photo_df = photo_df[photo_df["punch_type"] == punch_filter]
+
+        if photo_df.empty:
+            st.info("No photos found")
+        else:
+            for _, row in photo_df.iterrows():
+                img_path = os.path.join(PHOTO_DIR, row["photo"])
+                if row["photo"] and os.path.exists(img_path):
+                    with st.container(border=True):
+                        st.markdown(
+                            f"**👤 {row['name']}**  \n"
+                            f"📅 {row['date'].date()} | 🕒 {row['time']} | 🔖 {row['punch_type']}"
+                        )
+                        st.image(img_path, width=220)
+
+# ================= LOGOUT =================
+if st.session_state.logged:
+    if st.button("Logout"):
+        st.session_state.clear()
+        st.query_params.clear()
+        st.rerun()
+
