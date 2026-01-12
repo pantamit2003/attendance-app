@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import pytz
@@ -9,7 +8,7 @@ import uuid
 from PIL import Image
 
 # ================= CONFIG =================
-ALLOWED_DISTANCE = 300
+ALLOWED_DISTANCE = 300  # meters
 CSV_FILE = "attendance.csv"
 PHOTO_DIR = "photos"
 
@@ -32,6 +31,7 @@ def load_data():
         for c in cols:
             if c not in df.columns:
                 df[c] = ""
+        df["photo"] = df["photo"].fillna("")
         return df[cols]
     return pd.DataFrame(columns=cols)
 
@@ -124,13 +124,21 @@ if st.session_state.logged and not st.session_state.admin:
 
     col1, col2 = st.columns(2)
 
+    # ---------- PUNCH IN ----------
     with col1:
         if st.button("✅ PUNCH IN"):
-            if already_in:
-                st.error("Already punched IN")
+            if photo is None:
+                st.error("📷 Photo lena compulsory hai Punch IN ke liye")
                 st.stop()
-            if distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"]) > ALLOWED_DISTANCE:
-                st.error("Too far from office")
+
+            if already_in:
+                st.error("Already punched IN today")
+                st.stop()
+
+            distance = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
+            if distance > ALLOWED_DISTANCE:
+                st.error("❌ Aap office / warehouse location par nahi ho")
+                st.info(f"📏 Aap approx {int(distance)} meters door ho")
                 st.stop()
 
             save_row({
@@ -144,10 +152,25 @@ if st.session_state.logged and not st.session_state.admin:
             })
             st.success("Punch IN successful")
 
+    # ---------- PUNCH OUT ----------
     with col2:
         if st.button("⛔ PUNCH OUT"):
-            if not already_in or already_out:
-                st.error("Invalid Punch OUT")
+            if photo is None:
+                st.error("📷 Photo lena compulsory hai Punch OUT ke liye")
+                st.stop()
+
+            if not already_in:
+                st.error("Punch IN first")
+                st.stop()
+
+            if already_out:
+                st.error("Already punched OUT")
+                st.stop()
+
+            distance = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
+            if distance > ALLOWED_DISTANCE:
+                st.error("❌ Aap office / warehouse location par nahi ho")
+                st.info(f"📏 Aap approx {int(distance)} meters door ho")
                 st.stop()
 
             save_row({
@@ -169,7 +192,6 @@ if st.session_state.logged and st.session_state.admin:
 
     tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
-    # ---------- TABLE TAB ----------
     with tab1:
         filter_type = st.selectbox("📅 Date Filter",
             ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"])
@@ -177,7 +199,7 @@ if st.session_state.logged and st.session_state.admin:
         if filter_type == "Today":
             filtered_df = df[df["date"].dt.date == today]
         elif filter_type == "Last 1 Day":
-            filtered_df = df[df["date"].dt.date == (today - pd.Timedelta(days=1))]
+            filtered_df = df[df["date"].dt.date == today - pd.Timedelta(days=1)]
         elif filter_type == "Last 7 Days":
             filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) & (df["date"].dt.date <= today)]
         else:
@@ -189,27 +211,15 @@ if st.session_state.logged and st.session_state.admin:
         st.dataframe(filtered_df)
         st.download_button("⬇️ Download CSV", filtered_df.to_csv(index=False), "attendance.csv")
 
-    # ---------- PHOTOS TAB ----------
     with tab2:
         st.subheader("📸 Attendance Photos")
-        punch_filter = st.selectbox("Punch Type", ["All", "IN", "OUT"])
-
-        photo_df = filtered_df.copy()
-        if punch_filter != "All":
-            photo_df = photo_df[photo_df["punch_type"] == punch_filter]
-
-        if photo_df.empty:
-            st.info("No photos found")
-        else:
-            for _, row in photo_df.iterrows():
-                img_path = os.path.join(PHOTO_DIR, row["photo"])
-                if row["photo"] and os.path.exists(img_path):
-                    with st.container(border=True):
-                        st.markdown(
-                            f"**👤 {row['name']}**  \n"
-                            f"📅 {row['date'].date()} | 🕒 {row['time']} | 🔖 {row['punch_type']}"
-                        )
-                        st.image(img_path, width=220)
+        for _, row in filtered_df.iterrows():
+            photo_name = str(row["photo"])
+            if not photo_name:
+                continue
+            img_path = os.path.join(PHOTO_DIR, photo_name)
+            if os.path.exists(img_path):
+                st.image(img_path, caption=f"{row['name']} | {row['date'].date()} | {row['punch_type']}", width=220)
 
 # ================= LOGOUT =================
 if st.session_state.logged:
@@ -217,4 +227,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
-
