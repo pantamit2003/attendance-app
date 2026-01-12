@@ -3,7 +3,7 @@ import pandas as pd
 import pytz
 from datetime import datetime
 import math
-import psycopg2
+import psycopg
 import os
 
 # ================= CONFIG =================
@@ -23,45 +23,45 @@ IST = pytz.timezone("Asia/Kolkata")
 
 # ================= DATABASE CONNECTION (SUPABASE) =================
 def get_db_connection():
-    return psycopg2.connect(
+    return psycopg.connect(
         host=os.getenv("DB_HOST"),
-        database=os.getenv("DB_NAME"),
+        dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
-        port=int(os.getenv("DB_PORT"))
+        port=int(os.getenv("DB_PORT")),
+        sslmode="require"   # 🔑 VERY IMPORTANT FOR SUPABASE
     )
 
 # ================= DB FUNCTIONS =================
 def save_row(row):
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT INTO attendance
-        (date, name, punch_type, time, photo, lat, lon)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (
-        row["date"],
-        row["name"],
-        row["punch_type"],
-        row["time"],
-        row["photo"],
-        row["lat"],
-        row["lon"]
-    ))
-
-    conn.commit()
-    cur.close()
-    conn.close()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO attendance
+                (date, name, punch_type, time, photo, lat, lon)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (
+                row["date"],
+                row["name"],
+                row["punch_type"],
+                row["time"],
+                row["photo"],
+                row["lat"],
+                row["lon"]
+            ))
+        conn.commit()
 
 def load_data():
-    conn = get_db_connection()
-    df = pd.read_sql(
-        "SELECT date, name, punch_type, time, photo, lat, lon FROM attendance",
-        conn
-    )
-    conn.close()
-    return df
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT date, name, punch_type, time, photo, lat, lon
+                FROM attendance
+                ORDER BY date DESC, time DESC
+            """)
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            return pd.DataFrame(rows, columns=cols)
 
 # ================= DISTANCE =================
 def distance_in_meters(lat1, lon1, lat2, lon2):
@@ -154,7 +154,6 @@ if st.session_state.logged and not st.session_state.admin:
                 st.error("Too far from office")
                 st.stop()
 
-            now = datetime.now(IST)
             save_row({
                 "date": today,
                 "name": user,
@@ -177,7 +176,6 @@ if st.session_state.logged and not st.session_state.admin:
                 st.error("Already punched OUT")
                 st.stop()
 
-            now = datetime.now(IST)
             save_row({
                 "date": today,
                 "name": user,
