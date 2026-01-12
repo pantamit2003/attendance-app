@@ -160,10 +160,58 @@ if st.session_state.logged and not st.session_state.admin:
             st.success("Punch OUT successful")
 
 # ================= ADMIN =================
+# ================= ADMIN =================
 if st.session_state.logged and st.session_state.admin:
+    st.subheader("🧑‍💼 Admin Attendance Dashboard")
+
     df = load_data()
-    st.dataframe(df)
-    st.download_button("Download CSV", df.to_csv(index=False), "attendance.csv")
+
+    # Date column ko datetime me convert
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+
+    # Aaj ki IST date
+    today = datetime.now(IST).date()
+
+    # -------- FILTER SELECTION --------
+    filter_type = st.selectbox(
+        "📅 Select Filter",
+        ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"]
+    )
+
+    if filter_type == "Today":
+        filtered_df = df[df["date"].dt.date == today]
+
+    elif filter_type == "Last 1 Day":
+        filtered_df = df[df["date"].dt.date == (today - pd.Timedelta(days=1))]
+
+    elif filter_type == "Last 7 Days":
+        filtered_df = df[
+            (df["date"].dt.date >= (today - pd.Timedelta(days=7))) &
+            (df["date"].dt.date <= today)
+        ]
+
+    else:  # Custom Date Range
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input("Start Date", today - pd.Timedelta(days=7))
+        with col2:
+            end_date = st.date_input("End Date", today)
+
+        filtered_df = df[
+            (df["date"].dt.date >= start_date) &
+            (df["date"].dt.date <= end_date)
+        ]
+
+    # -------- DISPLAY DATA --------
+    st.markdown("### 📊 Attendance Records")
+    st.dataframe(filtered_df)
+
+    st.download_button(
+        "⬇️ Download Filtered CSV",
+        filtered_df.to_csv(index=False),
+        "attendance_filtered.csv"
+    )
+
 
 # ================= LOGOUT =================
 if st.session_state.logged:
@@ -171,3 +219,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun() isme addkarde baki code same hai 
+
