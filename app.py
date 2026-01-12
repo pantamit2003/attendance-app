@@ -21,7 +21,6 @@ USERS = {
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
-# ================= IST TIMEZONE =================
 IST = pytz.timezone("Asia/Kolkata")
 
 # ================= CSV =================
@@ -44,14 +43,10 @@ def save_row(row):
 def save_photo(photo):
     if photo is None:
         return ""
-
     os.makedirs(PHOTO_DIR, exist_ok=True)
-
     img = Image.open(photo)
     filename = f"{uuid.uuid4()}.jpg"
-    path = os.path.join(PHOTO_DIR, filename)
-    img.save(path)
-
+    img.save(os.path.join(PHOTO_DIR, filename))
     return filename
 
 # ================= DISTANCE =================
@@ -86,7 +81,6 @@ if "logged" not in st.session_state:
     st.session_state.user = None
     st.session_state.admin = False
 
-# ================= UI =================
 st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
 
 # ================= LOGIN =================
@@ -99,19 +93,16 @@ if not st.session_state.logged:
             st.session_state.logged = True
             st.session_state.admin = True
             st.rerun()
-
         elif u in USERS and USERS[u]["password"] == p:
             st.session_state.logged = True
             st.session_state.user = u
             st.rerun()
-
         else:
             st.error("Invalid credentials")
 
 # ================= USER =================
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
-
     st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
 
     params = st.query_params
@@ -124,8 +115,7 @@ if st.session_state.logged and not st.session_state.admin:
     photo = st.camera_input("📷 Take Photo")
 
     df = load_data()
-    now = datetime.now(IST)
-    today = now.strftime("%Y-%m-%d")
+    today = datetime.now(IST).strftime("%Y-%m-%d")
     user = st.session_state.user
 
     already_in = ((df["name"] == user) & (df["date"] == today) & (df["punch_type"] == "IN")).any()
@@ -133,49 +123,38 @@ if st.session_state.logged and not st.session_state.admin:
 
     col1, col2 = st.columns(2)
 
-    # ===== PUNCH IN =====
     with col1:
         if st.button("✅ PUNCH IN"):
             if already_in:
-                st.error("Already punched IN today")
+                st.error("Already punched IN")
                 st.stop()
-
-            office = USERS[user]
-            if distance_in_meters(lat, lon, office["lat"], office["lon"]) > ALLOWED_DISTANCE:
+            if distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"]) > ALLOWED_DISTANCE:
                 st.error("Too far from office")
                 st.stop()
-
-            photo_name = save_photo(photo)
 
             save_row({
                 "date": today,
                 "name": user,
                 "punch_type": "IN",
-                "time": now.strftime("%H:%M:%S"),
-                "photo": photo_name,
+                "time": datetime.now(IST).strftime("%H:%M:%S"),
+                "photo": save_photo(photo),
                 "lat": lat,
                 "lon": lon
             })
             st.success("Punch IN successful")
 
-    # ===== PUNCH OUT =====
     with col2:
         if st.button("⛔ PUNCH OUT"):
-            if not already_in:
-                st.error("Punch IN first")
+            if not already_in or already_out:
+                st.error("Invalid Punch OUT")
                 st.stop()
-            if already_out:
-                st.error("Already punched OUT")
-                st.stop()
-
-            photo_name = save_photo(photo)
 
             save_row({
                 "date": today,
                 "name": user,
                 "punch_type": "OUT",
-                "time": now.strftime("%H:%M:%S"),
-                "photo": photo_name,
+                "time": datetime.now(IST).strftime("%H:%M:%S"),
+                "photo": save_photo(photo),
                 "lat": lat,
                 "lon": lon
             })
@@ -183,58 +162,53 @@ if st.session_state.logged and not st.session_state.admin:
 
 # ================= ADMIN =================
 if st.session_state.logged and st.session_state.admin:
-    st.subheader("🧑‍💼 Admin Attendance Dashboard")
-
     df = load_data()
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     today = datetime.now(IST).date()
 
-    filter_type = st.selectbox(
-        "📅 Select Filter",
-        ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"]
-    )
+    tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
-    if filter_type == "Today":
-        filtered_df = df[df["date"].dt.date == today]
+    # ---------- TABLE TAB ----------
+    with tab1:
+        filter_type = st.selectbox("📅 Date Filter",
+            ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"])
 
-    elif filter_type == "Last 1 Day":
-        filtered_df = df[df["date"].dt.date == (today - pd.Timedelta(days=1))]
+        if filter_type == "Today":
+            filtered_df = df[df["date"].dt.date == today]
+        elif filter_type == "Last 1 Day":
+            filtered_df = df[df["date"].dt.date == (today - pd.Timedelta(days=1))]
+        elif filter_type == "Last 7 Days":
+            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) & (df["date"].dt.date <= today)]
+        else:
+            c1, c2 = st.columns(2)
+            start = c1.date_input("Start Date", today - pd.Timedelta(days=7))
+            end = c2.date_input("End Date", today)
+            filtered_df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
 
-    elif filter_type == "Last 7 Days":
-        filtered_df = df[
-            (df["date"].dt.date >= (today - pd.Timedelta(days=7))) &
-            (df["date"].dt.date <= today)
-        ]
-    else:
-        c1, c2 = st.columns(2)
-        with c1:
-            start_date = st.date_input("Start Date", today - pd.Timedelta(days=7))
-        with c2:
-            end_date = st.date_input("End Date", today)
+        st.dataframe(filtered_df)
+        st.download_button("⬇️ Download CSV", filtered_df.to_csv(index=False), "attendance.csv")
 
-        filtered_df = df[
-            (df["date"].dt.date >= start_date) &
-            (df["date"].dt.date <= end_date)
-        ]
+    # ---------- PHOTOS TAB ----------
+    with tab2:
+        st.subheader("📸 Attendance Photos")
+        punch_filter = st.selectbox("Punch Type", ["All", "IN", "OUT"])
 
-    st.dataframe(filtered_df)
+        photo_df = filtered_df.copy()
+        if punch_filter != "All":
+            photo_df = photo_df[photo_df["punch_type"] == punch_filter]
 
-    st.markdown("### 📸 Attendance Photos")
-    for _, row in filtered_df.iterrows():
-        if row["photo"]:
-            img_path = os.path.join(PHOTO_DIR, row["photo"])
-            if os.path.exists(img_path):
-                st.image(
-                    img_path,
-                    caption=f'{row["name"]} | {row["date"].date()} | {row["punch_type"]}',
-                    width=250
-                )
-
-    st.download_button(
-        "⬇️ Download Filtered CSV",
-        filtered_df.to_csv(index=False),
-        "attendance_filtered.csv"
-    )
+        if photo_df.empty:
+            st.info("No photos found")
+        else:
+            for _, row in photo_df.iterrows():
+                img_path = os.path.join(PHOTO_DIR, row["photo"])
+                if row["photo"] and os.path.exists(img_path):
+                    with st.container(border=True):
+                        st.markdown(
+                            f"**👤 {row['name']}**  \n"
+                            f"📅 {row['date'].date()} | 🕒 {row['time']} | 🔖 {row['punch_type']}"
+                        )
+                        st.image(img_path, width=220)
 
 # ================= LOGOUT =================
 if st.session_state.logged:
