@@ -8,7 +8,7 @@ import uuid
 from PIL import Image
 
 # ================= CONFIG =================
-ALLOWED_DISTANCE = 300
+ALLOWED_DISTANCE = 300  # meters
 CSV_FILE = "attendance.csv"
 PHOTO_DIR = "photos"
 
@@ -23,7 +23,7 @@ ADMIN_PASSWORD = "admin123"
 
 IST = pytz.timezone("Asia/Kolkata")
 
-# ================= CSV =================
+# ================= CSV FUNCTIONS =================
 def load_data():
     cols = ["date","name","punch_type","time","photo","lat","lon"]
     if os.path.exists(CSV_FILE):
@@ -58,7 +58,7 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
         math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# ================= GPS =================
+# ================= GPS SCRIPT =================
 st.markdown("""
 <script>
 function getLocation(){
@@ -81,6 +81,7 @@ if "logged" not in st.session_state:
     st.session_state.user = None
     st.session_state.admin = False
 
+# ================= UI =================
 st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
 
 # ================= LOGIN =================
@@ -100,9 +101,10 @@ if not st.session_state.logged:
         else:
             st.error("Invalid credentials")
 
-# ================= USER =================
+# ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
+
     st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
 
     params = st.query_params
@@ -123,13 +125,26 @@ if st.session_state.logged and not st.session_state.admin:
 
     col1, col2 = st.columns(2)
 
+    # ===== PUNCH IN =====
     with col1:
         if st.button("✅ PUNCH IN"):
             if already_in:
-                st.error("Already punched IN")
+                st.error("Already punched IN today")
                 st.stop()
-            if distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"]) > ALLOWED_DISTANCE:
-                st.error("Too far from office")
+
+            distance = distance_in_meters(
+                lat, lon,
+                USERS[user]["lat"],
+                USERS[user]["lon"]
+            )
+
+            if distance > ALLOWED_DISTANCE:
+                st.error(
+                    "❌ Aap apni **office / warehouse location** par nahi ho.\n\n"
+                    "📍 Punch sirf registered location se hi allowed hai.\n\n"
+                    "👉 Kripya pehle apni duty location par pahunchiye."
+                )
+                st.info(f"📏 Aap office se lagbhag **{int(distance)} meters** door ho")
                 st.stop()
 
             save_row({
@@ -143,10 +158,14 @@ if st.session_state.logged and not st.session_state.admin:
             })
             st.success("Punch IN successful")
 
+    # ===== PUNCH OUT =====
     with col2:
         if st.button("⛔ PUNCH OUT"):
-            if not already_in or already_out:
-                st.error("Invalid Punch OUT")
+            if not already_in:
+                st.error("Punch IN first")
+                st.stop()
+            if already_out:
+                st.error("Already punched OUT")
                 st.stop()
 
             save_row({
@@ -160,35 +179,49 @@ if st.session_state.logged and not st.session_state.admin:
             })
             st.success("Punch OUT successful")
 
-# ================= ADMIN =================
+# ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
+    st.subheader("🧑‍💼 Admin Dashboard")
+
     df = load_data()
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     today = datetime.now(IST).date()
 
     tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
-    # ---------- TABLE TAB ----------
+    # ---------- TABLE ----------
     with tab1:
-        filter_type = st.selectbox("📅 Date Filter",
-            ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"])
+        filter_type = st.selectbox(
+            "📅 Date Filter",
+            ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"]
+        )
 
         if filter_type == "Today":
             filtered_df = df[df["date"].dt.date == today]
         elif filter_type == "Last 1 Day":
             filtered_df = df[df["date"].dt.date == (today - pd.Timedelta(days=1))]
         elif filter_type == "Last 7 Days":
-            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) & (df["date"].dt.date <= today)]
+            filtered_df = df[
+                (df["date"].dt.date >= today - pd.Timedelta(days=7)) &
+                (df["date"].dt.date <= today)
+            ]
         else:
             c1, c2 = st.columns(2)
             start = c1.date_input("Start Date", today - pd.Timedelta(days=7))
             end = c2.date_input("End Date", today)
-            filtered_df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
+            filtered_df = df[
+                (df["date"].dt.date >= start) &
+                (df["date"].dt.date <= end)
+            ]
 
         st.dataframe(filtered_df)
-        st.download_button("⬇️ Download CSV", filtered_df.to_csv(index=False), "attendance.csv")
+        st.download_button(
+            "⬇️ Download CSV",
+            filtered_df.to_csv(index=False),
+            "attendance.csv"
+        )
 
-    # ---------- PHOTOS TAB ----------
+    # ---------- PHOTOS ----------
     with tab2:
         st.subheader("📸 Attendance Photos")
         punch_filter = st.selectbox("Punch Type", ["All", "IN", "OUT"])
@@ -216,4 +249,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
-
