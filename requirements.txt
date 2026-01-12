@@ -1,4 +1,4 @@
 streamlit
 pandas
 pytz
-mysql-connector-python
+psycopg2-binary
