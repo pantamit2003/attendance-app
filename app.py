@@ -27,10 +27,11 @@ ADMIN_PASSWORD = "admin123"
 IST = pytz.timezone("Asia/Kolkata")
 
 # ================= BACKGROUND IMAGE =================
-def set_background(image_file):
-    if not os.path.exists(image_file):
+def set_background(image_path):
+    if not os.path.exists(image_path):
         return
-    with open(image_file, "rb") as f:
+
+    with open(image_path, "rb") as f:
         encoded = base64.b64encode(f.read()).decode()
 
     st.markdown(
@@ -54,17 +55,18 @@ def set_background(image_file):
         unsafe_allow_html=True
     )
 
-set_background("bg.jpg")
+set_background("static/bg.jpg")
 
 # ================= AUTO PHOTO CLEANUP =================
 def cleanup_old_photos():
     if not os.path.exists(PHOTO_DIR):
         return
+
     now = datetime.now().timestamp()
     limit = PHOTO_RETENTION_DAYS * 24 * 60 * 60
 
-    for f in os.listdir(PHOTO_DIR):
-        path = os.path.join(PHOTO_DIR, f)
+    for file in os.listdir(PHOTO_DIR):
+        path = os.path.join(PHOTO_DIR, file)
         if os.path.isfile(path):
             if now - os.path.getmtime(path) > limit:
                 try:
@@ -93,8 +95,6 @@ def save_row(row):
 
 # ================= PHOTO SAVE =================
 def save_photo(photo):
-    if photo is None:
-        return ""
     os.makedirs(PHOTO_DIR, exist_ok=True)
     img = Image.open(photo)
     name = f"{uuid.uuid4()}.jpg"
@@ -106,8 +106,8 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
     R = 6371000
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * \
-        math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 # ================= GPS =================
@@ -152,7 +152,7 @@ if not st.session_state.logged:
         else:
             st.error("Invalid credentials")
 
-# ================= USER =================
+# ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {st.session_state.user}")
     st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
@@ -175,7 +175,7 @@ if st.session_state.logged and not st.session_state.admin:
 
     col1, col2 = st.columns(2)
 
-    # ---- PUNCH IN ----
+    # ---------- PUNCH IN ----------
     with col1:
         if st.button("✅ PUNCH IN"):
             if photo is None:
@@ -203,7 +203,7 @@ if st.session_state.logged and not st.session_state.admin:
             })
             st.success("Punch IN successful")
 
-    # ---- PUNCH OUT ----
+    # ---------- PUNCH OUT ----------
     with col2:
         if st.button("⛔ PUNCH OUT"):
             if photo is None:
@@ -231,8 +231,10 @@ if st.session_state.logged and not st.session_state.admin:
             })
             st.success("Punch OUT successful")
 
-# ================= ADMIN =================
+# ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
+    st.subheader("🧑‍💼 Admin Dashboard")
+
     df = load_data()
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     today = datetime.now(IST).date()
@@ -248,15 +250,18 @@ if st.session_state.logged and st.session_state.admin:
         elif f == "Last 1 Day":
             filtered_df = df[df["date"].dt.date == today - pd.Timedelta(days=1)]
         elif f == "Last 7 Days":
-            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) & (df["date"].dt.date <= today)]
+            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) &
+                             (df["date"].dt.date <= today)]
         else:
             s, e = st.columns(2)
             start = s.date_input("Start", today - pd.Timedelta(days=7))
             end = e.date_input("End", today)
-            filtered_df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
+            filtered_df = df[(df["date"].dt.date >= start) &
+                             (df["date"].dt.date <= end)]
 
         st.dataframe(filtered_df)
-        st.download_button("⬇️ Download CSV", filtered_df.to_csv(index=False), "attendance.csv")
+        st.download_button("⬇️ Download CSV",
+            filtered_df.to_csv(index=False), "attendance.csv")
 
     with tab2:
         st.subheader("📸 Attendance Photos")
@@ -264,7 +269,9 @@ if st.session_state.logged and st.session_state.admin:
             if r["photo"]:
                 path = os.path.join(PHOTO_DIR, r["photo"])
                 if os.path.exists(path):
-                    st.image(path, caption=f"{r['name']} | {r['date'].date()} | {r['punch_type']}", width=220)
+                    st.image(path,
+                        caption=f"{r['name']} | {r['date'].date()} | {r['punch_type']}",
+                        width=220)
 
 # ================= LOGOUT =================
 if st.session_state.logged:
