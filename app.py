@@ -218,5 +218,6 @@ if st.session_state.logged:
     if st.button("Logout"):
         st.session_state.clear()
         st.query_params.clear()
-        st.rerun() isme addkarde baki code same hai 
+        st.rerun() #isme addkarde baki code same hai 
+
 
