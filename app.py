@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import pytz
 from datetime import datetime
 import math
 import os
@@ -16,6 +17,9 @@ USERS = {
 
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
+
+# ================= IST TIMEZONE =================
+IST = pytz.timezone("Asia/Kolkata")
 
 # ================= CSV =================
 def load_data():
@@ -100,11 +104,12 @@ if st.session_state.logged and not st.session_state.admin:
     photo = st.camera_input("📷 Take Photo")
 
     df = load_data()
-    today = datetime.now().strftime("%Y-%m-%d")
+    now = datetime.now(IST)
+    today = now.strftime("%Y-%m-%d")
     user = st.session_state.user
 
-    already_in = ((df["name"]==user)&(df["date"]==today)&(df["punch_type"]=="IN")).any()
-    already_out = ((df["name"]==user)&(df["date"]==today)&(df["punch_type"]=="OUT")).any()
+    already_in = ((df["name"] == user) & (df["date"] == today) & (df["punch_type"] == "IN")).any()
+    already_out = ((df["name"] == user) & (df["date"] == today) & (df["punch_type"] == "OUT")).any()
 
     col1, col2 = st.columns(2)
 
@@ -120,7 +125,7 @@ if st.session_state.logged and not st.session_state.admin:
                 st.error("Too far from office")
                 st.stop()
 
-            now = datetime.now()
+            now = datetime.now(IST)
             save_row({
                 "date": today,
                 "name": user,
@@ -142,7 +147,7 @@ if st.session_state.logged and not st.session_state.admin:
                 st.error("Already punched OUT")
                 st.stop()
 
-            now = datetime.now()
+            now = datetime.now(IST)
             save_row({
                 "date": today,
                 "name": user,
@@ -166,7 +171,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
-
-
-
-
