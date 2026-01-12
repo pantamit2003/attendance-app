@@ -3,7 +3,8 @@ import pandas as pd
 import pytz
 from datetime import datetime
 import math
-import mysql.connector
+import psycopg2
+import os
 
 # ================= CONFIG =================
 ALLOWED_DISTANCE = 300
@@ -20,21 +21,22 @@ ADMIN_PASSWORD = "admin123"
 # ================= IST TIMEZONE =================
 IST = pytz.timezone("Asia/Kolkata")
 
-# ================= MYSQL CONNECTION =================
+# ================= DATABASE CONNECTION (SUPABASE) =================
 def get_db_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="root@123",      # 🔴 change if needed
-        database="attendance_db",
-        port=3306
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=int(os.getenv("DB_PORT"))
     )
 
 # ================= DB FUNCTIONS =================
 def save_row(row):
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
+    cur = conn.cursor()
+
+    cur.execute("""
         INSERT INTO attendance
         (date, name, punch_type, time, photo, lat, lon)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -47,8 +49,9 @@ def save_row(row):
         row["lat"],
         row["lon"]
     ))
+
     conn.commit()
-    cursor.close()
+    cur.close()
     conn.close()
 
 def load_data():
