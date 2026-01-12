@@ -12,6 +12,10 @@ ALLOWED_DISTANCE = 300
 CSV_FILE = "attendance.csv"
 PHOTO_DIR = "photos"
 
+# ================= TESTING MODE =================
+TEST_MODE = True               # 🔁 False = real date
+TEST_DATE = "2026-01-13"       # 👈 fake today for testing
+
 USERS = {
     "amit":  {"password": "1234", "lat": 28.743349, "lon": 77.116950},
     "rahul": {"password": "1111", "lat": 28.419466, "lon": 77.038072},
@@ -22,6 +26,15 @@ ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
 IST = pytz.timezone("Asia/Kolkata")
+
+# ================= TIME HELPER =================
+def get_now_and_today():
+    if TEST_MODE:
+        fake = datetime.strptime(TEST_DATE, "%Y-%m-%d")
+        return fake, TEST_DATE
+    else:
+        now = datetime.now(IST)
+        return now, now.strftime("%Y-%m-%d")
 
 # ================= CSV =================
 def load_data():
@@ -81,7 +94,11 @@ if "logged" not in st.session_state:
     st.session_state.user = None
     st.session_state.admin = False
 
+# ================= UI =================
 st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
+
+if TEST_MODE:
+    st.warning(f"🧪 TEST MODE ON | Today assumed as {TEST_DATE}")
 
 # ================= LOGIN =================
 if not st.session_state.logged:
@@ -115,7 +132,7 @@ if st.session_state.logged and not st.session_state.admin:
     photo = st.camera_input("📷 Take Photo")
 
     df = load_data()
-    today = datetime.now(IST).strftime("%Y-%m-%d")
+    now, today = get_now_and_today()
     user = st.session_state.user
 
     already_in = ((df["name"] == user) & (df["date"] == today) & (df["punch_type"] == "IN")).any()
@@ -136,7 +153,7 @@ if st.session_state.logged and not st.session_state.admin:
                 "date": today,
                 "name": user,
                 "punch_type": "IN",
-                "time": datetime.now(IST).strftime("%H:%M:%S"),
+                "time": now.strftime("%H:%M:%S"),
                 "photo": save_photo(photo),
                 "lat": lat,
                 "lon": lon
@@ -153,7 +170,7 @@ if st.session_state.logged and not st.session_state.admin:
                 "date": today,
                 "name": user,
                 "punch_type": "OUT",
-                "time": datetime.now(IST).strftime("%H:%M:%S"),
+                "time": now.strftime("%H:%M:%S"),
                 "photo": save_photo(photo),
                 "lat": lat,
                 "lon": lon
@@ -164,31 +181,39 @@ if st.session_state.logged and not st.session_state.admin:
 if st.session_state.logged and st.session_state.admin:
     df = load_data()
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    today = datetime.now(IST).date()
+
+    now, today_str = get_now_and_today()
+    today = pd.to_datetime(today_str).date()
 
     tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
-    # ---------- TABLE TAB ----------
     with tab1:
-        filter_type = st.selectbox("📅 Date Filter",
-            ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"])
+        filter_type = st.selectbox(
+            "📅 Date Filter",
+            ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"]
+        )
 
         if filter_type == "Today":
             filtered_df = df[df["date"].dt.date == today]
         elif filter_type == "Last 1 Day":
             filtered_df = df[df["date"].dt.date == (today - pd.Timedelta(days=1))]
         elif filter_type == "Last 7 Days":
-            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) & (df["date"].dt.date <= today)]
+            filtered_df = df[
+                (df["date"].dt.date >= today - pd.Timedelta(days=7)) &
+                (df["date"].dt.date <= today)
+            ]
         else:
             c1, c2 = st.columns(2)
             start = c1.date_input("Start Date", today - pd.Timedelta(days=7))
             end = c2.date_input("End Date", today)
-            filtered_df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
+            filtered_df = df[
+                (df["date"].dt.date >= start) &
+                (df["date"].dt.date <= end)
+            ]
 
         st.dataframe(filtered_df)
         st.download_button("⬇️ Download CSV", filtered_df.to_csv(index=False), "attendance.csv")
 
-    # ---------- PHOTOS TAB ----------
     with tab2:
         st.subheader("📸 Attendance Photos")
         punch_filter = st.selectbox("Punch Type", ["All", "IN", "OUT"])
