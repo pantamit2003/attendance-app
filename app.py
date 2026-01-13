@@ -17,10 +17,19 @@ ALLOWED_DISTANCE = 300  # meters
 IST = pytz.timezone("Asia/Kolkata")
 
 USERS = {
-    "amit":  {"password": "1234", "lat": 28.743349, "lon": 77.116950},
-    "rahul": {"password": "1111", "lat": 28.419466, "lon": 77.038072},
-    "neha":  {"password": "2222", "lat": 28.419466, "lon": 77.038072},
-    "dep":   {"password": "1456", "lat": 28.502959, "lon": 77.185798}
+    "aajad": {"password": "1234"},
+    "jitender": {"password": "1234"},
+    "ramnivas": {"password": "1234"},
+    "laxman": {"password": "1234"},
+    "prem": {"password": "1234"},
+    "mithlesh": {"password": "1234"},
+    "dharmender": {"password": "1234"},
+    "deepak": {"password": "1234"},
+    "rajan": {"password": "1234"},
+    "shyam": {"password": "1234"},
+    "surjesh": {"password": "1234"},
+    "bittu": {"password": "1234"},
+    "prakash": {"password": "1234"},
 }
 
 ADMIN_USER = "admin"
@@ -34,19 +43,31 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
     R = 6371000
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * \
-        math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlon / 2) ** 2
+    )
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def get_allowed_warehouses(user):
+    res = (
+        supabase.table("user_warehouses")
+        .select("warehouses(name, lat, lon)")
+        .eq("user_name", user)
+        .execute()
+    )
+    return res.data or []
 
 def save_photo(photo):
     if photo is None:
         return ""
-
     filename = f"{uuid.uuid4()}.jpg"
     supabase.storage.from_("attendance-photos").upload(
         filename,
         photo.getvalue(),
-        {"content-type": "image/jpeg"}
+        {"content-type": "image/jpeg"},
     )
     return filename
 
@@ -55,16 +76,14 @@ def save_row(row):
 
 def load_data():
     res = supabase.table("attendance").select("*").execute()
-
-    cols = ["date", "name", "punch_type", "time", "photo", "lat", "lon"]
-
+    cols = ["date", "name", "warehouse_name", "punch_type", "time", "photo", "lat", "lon"]
     if not res.data:
         return pd.DataFrame(columns=cols)
-
     return pd.DataFrame(res.data)
 
 # ================= GPS =================
-st.markdown("""
+st.markdown(
+    """
 <script>
 function getLocation(){
   navigator.geolocation.getCurrentPosition(
@@ -78,7 +97,9 @@ function getLocation(){
   );
 }
 </script>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # ================= SESSION =================
 if "logged" not in st.session_state:
@@ -107,7 +128,8 @@ if not st.session_state.logged:
 
 # ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
-    st.subheader(f"👤 Welcome {st.session_state.user}")
+    user = st.session_state.user
+    st.subheader(f"👤 Welcome {user}")
     st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
 
     params = st.query_params
@@ -121,10 +143,35 @@ if st.session_state.logged and not st.session_state.admin:
 
     df = load_data()
     today = now_ist().date()
-    user = st.session_state.user
 
-    already_in = ((df["name"] == user) & (pd.to_datetime(df["date"]).dt.date == today) & (df["punch_type"] == "IN")).any()
-    already_out = ((df["name"] == user) & (pd.to_datetime(df["date"]).dt.date == today) & (df["punch_type"] == "OUT")).any()
+    already_in = (
+        (df["name"] == user)
+        & (pd.to_datetime(df["date"]).dt.date == today)
+        & (df["punch_type"] == "IN")
+    ).any()
+
+    already_out = (
+        (df["name"] == user)
+        & (pd.to_datetime(df["date"]).dt.date == today)
+        & (df["punch_type"] == "OUT")
+    ).any()
+
+    allowed = get_allowed_warehouses(user)
+    if not allowed:
+        st.error("❌ Aap kisi warehouse ke liye allowed nahi ho")
+        st.stop()
+
+    matched_wh = None
+    for row in allowed:
+        wh = row["warehouses"]
+        dist = distance_in_meters(lat, lon, wh["lat"], wh["lon"])
+        if dist <= ALLOWED_DISTANCE:
+            matched_wh = wh
+            break
+
+    if not matched_wh:
+        st.error("❌ Aap allowed warehouse location par nahi ho")
+        st.stop()
 
     col1, col2 = st.columns(2)
 
@@ -133,52 +180,46 @@ if st.session_state.logged and not st.session_state.admin:
             if photo is None:
                 st.error("📷 Photo compulsory hai")
                 st.stop()
-
             if already_in:
                 st.error("Already punched IN today")
                 st.stop()
 
-            dist = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
-            if dist > ALLOWED_DISTANCE:
-                st.error(f"❌ Location mismatch ({int(dist)} m)")
-                st.stop()
-
-            save_row({
-                "date": today.isoformat(),
-                "name": user,
-                "punch_type": "IN",
-                "time": now_ist().strftime("%H:%M:%S"),
-                "photo": save_photo(photo),
-                "lat": lat,
-                "lon": lon
-            })
-            st.success("Punch IN successful")
+            save_row(
+                {
+                    "date": today.isoformat(),
+                    "name": user,
+                    "warehouse_name": matched_wh["name"],
+                    "punch_type": "IN",
+                    "time": now_ist().strftime("%H:%M:%S"),
+                    "photo": save_photo(photo),
+                    "lat": lat,
+                    "lon": lon,
+                }
+            )
+            st.success(f"Punch IN successful ({matched_wh['name']})")
 
     with col2:
         if st.button("⛔ PUNCH OUT"):
             if photo is None:
                 st.error("📷 Photo compulsory hai")
                 st.stop()
-
             if not already_in or already_out:
                 st.error("Invalid Punch OUT")
                 st.stop()
 
-            dist = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
-            if dist > ALLOWED_DISTANCE:
-                st.error(f"❌ Location mismatch ({int(dist)} m)")
-                st.stop()
-
-            save_row({
-                "date": today.isoformat(),
-                "name": user,
-                "punch_type": "OUT",
-                "time": now_ist().strftime("%H:%M:%S"),
-                "photo": save_photo(photo),
-                "lat": lat,
-                "lon": lon
-            })
-            st.success("Punch OUT successful")
+            save_row(
+                {
+                    "date": today.isoformat(),
+                    "name": user,
+                    "warehouse_name": matched_wh["name"],
+                    "punch_type": "OUT",
+                    "time": now_ist().strftime("%H:%M:%S"),
+                    "photo": save_photo(photo),
+                    "lat": lat,
+                    "lon": lon,
+                }
+            )
+            st.success(f"Punch OUT successful ({matched_wh['name']})")
 
 # ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
@@ -189,20 +230,27 @@ if st.session_state.logged and st.session_state.admin:
     tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
     with tab1:
-        filter = st.selectbox("📅 Date Filter",
-            ["Today", "Last 1 Day", "Last 7 Days", "Custom Date Range"])
+        filter = st.selectbox(
+            "📅 Date Filter",
+            ["Today", "Yesterday", "Last 7 Days", "Custom Date Range"],
+        )
 
         if filter == "Today":
             filtered_df = df[df["date"].dt.date == today]
-        elif filter == "Last 1 Day":
+        elif filter == "Yesterday":
             filtered_df = df[df["date"].dt.date == today - pd.Timedelta(days=1)]
         elif filter == "Last 7 Days":
-            filtered_df = df[(df["date"].dt.date >= today - pd.Timedelta(days=7)) & (df["date"].dt.date <= today)]
+            filtered_df = df[
+                (df["date"].dt.date >= today - pd.Timedelta(days=7))
+                & (df["date"].dt.date <= today)
+            ]
         else:
             s, e = st.columns(2)
             start = s.date_input("Start", today - pd.Timedelta(days=7))
             end = e.date_input("End", today)
-            filtered_df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
+            filtered_df = df[
+                (df["date"].dt.date >= start) & (df["date"].dt.date <= end)
+            ]
 
         st.dataframe(filtered_df)
 
@@ -210,7 +258,11 @@ if st.session_state.logged and st.session_state.admin:
         for _, row in filtered_df.iterrows():
             if row["photo"]:
                 url = supabase.storage.from_("attendance-photos").get_public_url(row["photo"])
-                st.image(url, caption=f"{row['name']} | {row['date'].date()} | {row['punch_type']}", width=220)
+                st.image(
+                    url,
+                    caption=f"{row['name']} | {row['warehouse_name']} | {row['punch_type']}",
+                    width=220,
+                )
 
 # ================= LOGOUT =================
 if st.session_state.logged:
@@ -218,5 +270,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
-
-
