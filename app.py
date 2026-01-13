@@ -55,6 +55,12 @@ def save_row(row):
 
 def load_data():
     res = supabase.table("attendance").select("*").execute()
+
+    cols = ["date", "name", "punch_type", "time", "photo", "lat", "lon"]
+
+    if not res.data:
+        return pd.DataFrame(columns=cols)
+
     return pd.DataFrame(res.data)
 
 # ================= GPS =================
@@ -212,4 +218,5 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
