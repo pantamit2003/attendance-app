@@ -3,15 +3,18 @@ import pandas as pd
 import pytz
 from datetime import datetime
 import math
-import os
 import uuid
-from PIL import Image
+from supabase import create_client
+
+# ================= SUPABASE =================
+supabase = create_client(
+    st.secrets["SUPABASE_URL"],
+    st.secrets["SUPABASE_KEY"]
+)
 
 # ================= CONFIG =================
 ALLOWED_DISTANCE = 300  # meters
-CSV_FILE = "attendance.csv"
-PHOTO_DIR = "photos"
-PHOTO_RETENTION_DAYS = 7  # 🔥 auto delete photos after 7 days
+IST = pytz.timezone("Asia/Kolkata")
 
 USERS = {
     "amit":  {"password": "1234", "lat": 28.743349, "lon": 77.116950},
@@ -23,56 +26,10 @@ USERS = {
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
-IST = pytz.timezone("Asia/Kolkata")
+# ================= HELPERS =================
+def now_ist():
+    return datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(IST)
 
-# ================= AUTO PHOTO CLEANUP =================
-def cleanup_old_photos():
-    if not os.path.exists(PHOTO_DIR):
-        return
-
-    now = datetime.now().timestamp()
-    retention_seconds = PHOTO_RETENTION_DAYS * 24 * 60 * 60
-
-    for file in os.listdir(PHOTO_DIR):
-        path = os.path.join(PHOTO_DIR, file)
-        if os.path.isfile(path):
-            age = now - os.path.getmtime(path)
-            if age > retention_seconds:
-                try:
-                    os.remove(path)
-                except Exception:
-                    pass
-
-cleanup_old_photos()  # 🔥 app start hote hi cleanup
-
-# ================= CSV =================
-def load_data():
-    cols = ["date","name","punch_type","time","photo","lat","lon"]
-    if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE)
-        for c in cols:
-            if c not in df.columns:
-                df[c] = ""
-        df["photo"] = df["photo"].fillna("")
-        return df[cols]
-    return pd.DataFrame(columns=cols)
-
-def save_row(row):
-    df = load_data()
-    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-    df.to_csv(CSV_FILE, index=False)
-
-# ================= PHOTO SAVE =================
-def save_photo(photo):
-    if photo is None:
-        return ""
-    os.makedirs(PHOTO_DIR, exist_ok=True)
-    img = Image.open(photo)
-    filename = f"{uuid.uuid4()}.jpg"
-    img.save(os.path.join(PHOTO_DIR, filename))
-    return filename
-
-# ================= DISTANCE =================
 def distance_in_meters(lat1, lon1, lat2, lon2):
     R = 6371000
     dlat = math.radians(lat2 - lat1)
@@ -80,6 +37,25 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * \
         math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def save_photo(photo):
+    if photo is None:
+        return ""
+
+    filename = f"{uuid.uuid4()}.jpg"
+    supabase.storage.from_("attendance-photos").upload(
+        filename,
+        photo.getvalue(),
+        {"content-type": "image/jpeg"}
+    )
+    return filename
+
+def save_row(row):
+    supabase.table("attendance").insert(row).execute()
+
+def load_data():
+    res = supabase.table("attendance").select("*").execute()
+    return pd.DataFrame(res.data)
 
 # ================= GPS =================
 st.markdown("""
@@ -138,19 +114,18 @@ if st.session_state.logged and not st.session_state.admin:
     photo = st.camera_input("📷 Take Photo")
 
     df = load_data()
-    today = datetime.now(IST).strftime("%Y-%m-%d")
+    today = now_ist().date()
     user = st.session_state.user
 
-    already_in = ((df["name"] == user) & (df["date"] == today) & (df["punch_type"] == "IN")).any()
-    already_out = ((df["name"] == user) & (df["date"] == today) & (df["punch_type"] == "OUT")).any()
+    already_in = ((df["name"] == user) & (pd.to_datetime(df["date"]).dt.date == today) & (df["punch_type"] == "IN")).any()
+    already_out = ((df["name"] == user) & (pd.to_datetime(df["date"]).dt.date == today) & (df["punch_type"] == "OUT")).any()
 
     col1, col2 = st.columns(2)
 
-    # ---------- PUNCH IN ----------
     with col1:
         if st.button("✅ PUNCH IN"):
             if photo is None:
-                st.error("📷 Photo lena compulsory hai")
+                st.error("📷 Photo compulsory hai")
                 st.stop()
 
             if already_in:
@@ -159,26 +134,24 @@ if st.session_state.logged and not st.session_state.admin:
 
             dist = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
             if dist > ALLOWED_DISTANCE:
-                st.error("❌ Aap office / warehouse location par nahi ho")
-                st.info(f"📏 Aap approx {int(dist)} meters door ho")
+                st.error(f"❌ Location mismatch ({int(dist)} m)")
                 st.stop()
 
             save_row({
-                "date": today,
+                "date": today.isoformat(),
                 "name": user,
                 "punch_type": "IN",
-                "time": datetime.now(IST).strftime("%H:%M:%S"),
+                "time": now_ist().strftime("%H:%M:%S"),
                 "photo": save_photo(photo),
                 "lat": lat,
                 "lon": lon
             })
             st.success("Punch IN successful")
 
-    # ---------- PUNCH OUT ----------
     with col2:
         if st.button("⛔ PUNCH OUT"):
             if photo is None:
-                st.error("📷 Photo lena compulsory hai")
+                st.error("📷 Photo compulsory hai")
                 st.stop()
 
             if not already_in or already_out:
@@ -187,15 +160,14 @@ if st.session_state.logged and not st.session_state.admin:
 
             dist = distance_in_meters(lat, lon, USERS[user]["lat"], USERS[user]["lon"])
             if dist > ALLOWED_DISTANCE:
-                st.error("❌ Aap office / warehouse location par nahi ho")
-                st.info(f"📏 Aap approx {int(dist)} meters door ho")
+                st.error(f"❌ Location mismatch ({int(dist)} m)")
                 st.stop()
 
             save_row({
-                "date": today,
+                "date": today.isoformat(),
                 "name": user,
                 "punch_type": "OUT",
-                "time": datetime.now(IST).strftime("%H:%M:%S"),
+                "time": now_ist().strftime("%H:%M:%S"),
                 "photo": save_photo(photo),
                 "lat": lat,
                 "lon": lon
@@ -205,8 +177,8 @@ if st.session_state.logged and not st.session_state.admin:
 # ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
     df = load_data()
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    today = datetime.now(IST).date()
+    df["date"] = pd.to_datetime(df["date"])
+    today = now_ist().date()
 
     tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
@@ -227,15 +199,12 @@ if st.session_state.logged and st.session_state.admin:
             filtered_df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
 
         st.dataframe(filtered_df)
-        st.download_button("⬇️ Download CSV", filtered_df.to_csv(index=False), "attendance.csv")
 
     with tab2:
-        st.subheader("📸 Attendance Photos")
         for _, row in filtered_df.iterrows():
             if row["photo"]:
-                path = os.path.join(PHOTO_DIR, row["photo"])
-                if os.path.exists(path):
-                    st.image(path, caption=f"{row['name']} | {row['date'].date()} | {row['punch_type']}", width=220)
+                url = supabase.storage.from_("attendance-photos").get_public_url(row["photo"])
+                st.image(url, caption=f"{row['name']} | {row['date'].date()} | {row['punch_type']}", width=220)
 
 # ================= LOGOUT =================
 if st.session_state.logged:
