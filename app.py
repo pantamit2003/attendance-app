@@ -55,7 +55,7 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
 def get_allowed_warehouses(user):
     res = (
         supabase.table("user_warehouses")
-        .select("warehouses(name, lat, lon)")
+        .select("warehouses(lat, lon)")
         .eq("user_name", user)
         .execute()
     )
@@ -73,35 +73,22 @@ def save_photo(photo):
     return filename
 
 def save_row(row):
-    supabase.table("attendance").insert(row).execute()
+    try:
+        supabase.table("attendance").insert(row).execute()
+    except Exception as e:
+        st.error("❌ Attendance save nahi hui")
+        st.exception(e)
+        st.stop()
 
 def load_data():
     res = supabase.table("attendance").select("*").execute()
-    cols = [
-        "date",
-        "name",
-        "warehouse_name",
-        "punch_type",
-        "time",
-        "photo",
-        "lat",
-        "lon",
-    ]
-
+    cols = ["date", "name", "punch_type", "time", "photo", "lat", "lon"]
     if not res.data:
         return pd.DataFrame(columns=cols)
-
-    df = pd.DataFrame(res.data)
-
-    # backward compatibility
-    if "warehouse_name" not in df.columns:
-        df["warehouse_name"] = "UNKNOWN"
-
-    return df
+    return pd.DataFrame(res.data)
 
 # ================= GPS =================
-st.markdown(
-    """
+st.markdown("""
 <script>
 function getLocation(){
   navigator.geolocation.getCurrentPosition(
@@ -115,9 +102,7 @@ function getLocation(){
   );
 }
 </script>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 # ================= SESSION =================
 if "logged" not in st.session_state:
@@ -179,15 +164,15 @@ if st.session_state.logged and not st.session_state.admin:
         st.error("❌ Aap kisi warehouse ke liye allowed nahi ho")
         st.stop()
 
-    matched_wh = None
+    valid_location = False
     for row in allowed:
         wh = row["warehouses"]
         dist = distance_in_meters(lat, lon, wh["lat"], wh["lon"])
         if dist <= ALLOWED_DISTANCE:
-            matched_wh = wh
+            valid_location = True
             break
 
-    if not matched_wh:
+    if not valid_location:
         st.error("❌ Aap allowed warehouse location par nahi ho")
         st.stop()
 
@@ -202,19 +187,16 @@ if st.session_state.logged and not st.session_state.admin:
                 st.error("Already punched IN today")
                 st.stop()
 
-            save_row(
-                {
-                    "date": today.isoformat(),
-                    "name": user,
-                    "warehouse_name": matched_wh["name"],
-                    "punch_type": "IN",
-                    "time": now_ist().strftime("%H:%M:%S"),
-                    "photo": save_photo(photo),
-                    "lat": lat,
-                    "lon": lon,
-                }
-            )
-            st.success(f"Punch IN successful ({matched_wh['name']})")
+            save_row({
+                "date": today.isoformat(),
+                "name": user,
+                "punch_type": "IN",
+                "time": now_ist().strftime("%H:%M:%S"),
+                "photo": save_photo(photo),
+                "lat": lat,
+                "lon": lon,
+            })
+            st.success("Punch IN successful")
 
     with col2:
         if st.button("⛔ PUNCH OUT"):
@@ -225,19 +207,16 @@ if st.session_state.logged and not st.session_state.admin:
                 st.error("Invalid Punch OUT")
                 st.stop()
 
-            save_row(
-                {
-                    "date": today.isoformat(),
-                    "name": user,
-                    "warehouse_name": matched_wh["name"],
-                    "punch_type": "OUT",
-                    "time": now_ist().strftime("%H:%M:%S"),
-                    "photo": save_photo(photo),
-                    "lat": lat,
-                    "lon": lon,
-                }
-            )
-            st.success(f"Punch OUT successful ({matched_wh['name']})")
+            save_row({
+                "date": today.isoformat(),
+                "name": user,
+                "punch_type": "OUT",
+                "time": now_ist().strftime("%H:%M:%S"),
+                "photo": save_photo(photo),
+                "lat": lat,
+                "lon": lon,
+            })
+            st.success("Punch OUT successful")
 
 # ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
@@ -276,10 +255,9 @@ if st.session_state.logged and st.session_state.admin:
         for _, row in filtered_df.iterrows():
             if row["photo"]:
                 url = supabase.storage.from_("attendance-photos").get_public_url(row["photo"])
-                warehouse = row.get("warehouse_name", "UNKNOWN")
                 st.image(
                     url,
-                    caption=f"{row['name']} | {warehouse} | {row['punch_type']}",
+                    caption=f"{row['name']} | {row['punch_type']}",
                     width=220,
                 )
 
