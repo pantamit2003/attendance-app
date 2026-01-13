@@ -4,7 +4,7 @@ import pytz
 from datetime import datetime
 import math
 import uuid
-from supabase import create_client
+from supabase.client import create_client
 
 # ================= SUPABASE =================
 supabase = create_client(
@@ -212,3 +212,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
