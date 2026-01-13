@@ -77,10 +77,27 @@ def save_row(row):
 
 def load_data():
     res = supabase.table("attendance").select("*").execute()
-    cols = ["date", "name", "warehouse_name", "punch_type", "time", "photo", "lat", "lon"]
+    cols = [
+        "date",
+        "name",
+        "warehouse_name",
+        "punch_type",
+        "time",
+        "photo",
+        "lat",
+        "lon",
+    ]
+
     if not res.data:
         return pd.DataFrame(columns=cols)
-    return pd.DataFrame(res.data)
+
+    df = pd.DataFrame(res.data)
+
+    # backward compatibility
+    if "warehouse_name" not in df.columns:
+        df["warehouse_name"] = "UNKNOWN"
+
+    return df
 
 # ================= GPS =================
 st.markdown(
@@ -259,9 +276,10 @@ if st.session_state.logged and st.session_state.admin:
         for _, row in filtered_df.iterrows():
             if row["photo"]:
                 url = supabase.storage.from_("attendance-photos").get_public_url(row["photo"])
+                warehouse = row.get("warehouse_name", "UNKNOWN")
                 st.image(
                     url,
-                    caption=f"{row['name']} | {row['warehouse_name']} | {row['punch_type']}",
+                    caption=f"{row['name']} | {warehouse} | {row['punch_type']}",
                     width=220,
                 )
 
@@ -271,4 +289,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
-
