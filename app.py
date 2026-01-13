@@ -30,6 +30,7 @@ USERS = {
     "surjesh": {"password": "1234"},
     "bittu": {"password": "1234"},
     "prakash": {"password": "1234"},
+    "amit": {"password": "1234"},
 }
 
 ADMIN_USER = "admin"
@@ -270,3 +271,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
