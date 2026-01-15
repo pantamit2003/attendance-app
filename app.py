@@ -28,9 +28,10 @@ USERS = {
     "Rajan": {"password": "1234"},
     "Shyamjeesharma": {"password": "1234"},
     "Surjesh": {"password": "1234"},
-    "bittu": {"password": "1234"},
+    "Bittu": {"password": "1234"},
     "Prakashkumarjha": {"password": "1234"},
     "amit": {"password": "1234"},
+    "Himanshu": {"password": "1234"},
 }
 
 ADMIN_USER = "admin"
