@@ -19,7 +19,7 @@ IST = pytz.timezone("Asia/Kolkata")
 USERS = {
     "Ajad": {"password": "1234"},
     "Jitender": {"password": "1234"},
-    "RamNivas": {"password": "1234"},
+    "RamNiwas": {"password": "1234"},
     "Lakshman": {"password": "1234"},
     "premPatil": {"password": "1234"},
     "Mithlesh": {"password": "1234"},
@@ -269,4 +269,5 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
