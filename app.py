@@ -17,19 +17,19 @@ ALLOWED_DISTANCE = 300  # meters
 IST = pytz.timezone("Asia/Kolkata")
 
 USERS = {
-    "aajad": {"password": "1234"},
-    "jitender": {"password": "1234"},
-    "ramnivas": {"password": "1234"},
-    "laxman": {"password": "1234"},
-    "prem": {"password": "1234"},
-    "mithlesh": {"password": "1234"},
-    "dharmender": {"password": "1234"},
-    "deepak": {"password": "1234"},
-    "rajan": {"password": "1234"},
-    "shyam": {"password": "1234"},
-    "surjesh": {"password": "1234"},
+    "Ajad": {"password": "1234"},
+    "Jitender": {"password": "1234"},
+    "RamNivas": {"password": "1234"},
+    "Lakshman": {"password": "1234"},
+    "premPatil": {"password": "1234"},
+    "Mithlesh": {"password": "1234"},
+    "Dharmendra": {"password": "1234"},
+    "Deepak": {"password": "1234"},
+    "Rajan": {"password": "1234"},
+    "Shyamjeesharma": {"password": "1234"},
+    "Surjesh": {"password": "1234"},
     "bittu": {"password": "1234"},
-    "prakash": {"password": "1234"},
+    "Prakashkumarjha": {"password": "1234"},
     "amit": {"password": "1234"},
 }
 
@@ -268,3 +268,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
