@@ -116,20 +116,28 @@ st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
 # ================= LOGIN =================
 if not st.session_state.logged:
     u_raw = st.text_input("Username")
-    u = u_raw.strip().lower()
-    p = st.text_input("Password", type="password")
+p = st.text_input("Password", type="password")
 
-    if st.button("Login"):
-        if u == ADMIN_USER and p == ADMIN_PASSWORD:
-            st.session_state.logged = True
-            st.session_state.admin = True
-            st.rerun()
-        elif u in USERS and USERS[u]["password"] == p:
-            st.session_state.logged = True
-            st.session_state.user = u
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
+if st.button("Login"):
+    u_clean = u_raw.strip().lower()
+
+    matched_user = None
+    for real_user in USERS:
+        if real_user.lower() == u_clean:
+            matched_user = real_user
+            break
+
+    if u_clean == ADMIN_USER and p == ADMIN_PASSWORD:
+        st.session_state.logged = True
+        st.session_state.admin = True
+        st.rerun()
+
+    elif matched_user and USERS[matched_user]["password"] == p:
+        st.session_state.logged = True
+        st.session_state.user = matched_user  # 🔥 ORIGINAL NAME
+        st.rerun()
+    else:
+        st.error("Invalid credentials")
 
 # ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
@@ -269,5 +277,6 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
