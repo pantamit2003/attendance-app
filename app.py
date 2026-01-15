@@ -116,7 +116,7 @@ st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
 # ================= LOGIN =================
 if not st.session_state.logged:
     u_raw = st.text_input("Username")
-p = st.text_input("Password", type="password")
+    p = st.text_input("Password", type="password")
 
 if st.button("Login"):
     u_clean = u_raw.strip().lower()
@@ -277,6 +277,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
