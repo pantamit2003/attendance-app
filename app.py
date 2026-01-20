@@ -177,16 +177,19 @@ if st.session_state.logged and not st.session_state.admin:
             last_in = None
     
     if last_in is not None:
-        duration = now_ist() - last_in
-        hours, remainder = divmod(int(duration.total_seconds()), 3600)
-        minutes, seconds = divmod(remainder, 60)
-    
-        st.info(
-            f"⏱️ **Working since:** {last_in.strftime('%d-%m %H:%M:%S')}  \n"
-            f"🕒 **Total time:** {hours}h {minutes}m {seconds}s"
-        )
+    last_in = last_in.to_pydatetime().replace(tzinfo=IST)
+
+    duration = now_ist() - last_in
+    hours, remainder = divmod(int(duration.total_seconds()), 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    st.info(
+        f"⏱️ **Working since:** {last_in.strftime('%d-%m %H:%M:%S')}  \n"
+        f"🕒 **Total time:** {hours}h {minutes}m {seconds}s"
+    )
     else:
         st.info("ℹ️ You are currently punched OUT")
+
 
     already_in = (
         (df["name"] == user)
@@ -308,6 +311,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
