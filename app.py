@@ -159,38 +159,6 @@ if st.session_state.logged and not st.session_state.admin:
 
     df = load_data()
     today = now_ist().date()
-    # ================= ACTIVE PUNCH TIMER =================
-
-    user_df = df[df["name"] == user].copy()
-    
-    user_df["dt"] = pd.to_datetime(
-        user_df["date"].astype(str) + " " + user_df["time"].astype(str)
-    )
-    
-    user_df = user_df.sort_values("dt")
-    
-    last_in = None
-    for _, r in user_df.iterrows():
-        if r["punch_type"] == "IN":
-            last_in = r["dt"]
-        elif r["punch_type"] == "OUT":
-            last_in = None
-    
-    if last_in is not None:
-    last_in = last_in.to_pydatetime().replace(tzinfo=IST)
-
-    duration = now_ist() - last_in
-    hours, remainder = divmod(int(duration.total_seconds()), 3600)
-    minutes, seconds = divmod(remainder, 60)
-
-    st.info(
-        f"⏱️ **Working since:** {last_in.strftime('%d-%m %H:%M:%S')}  \n"
-        f"🕒 **Total time:** {hours}h {minutes}m {seconds}s"
-    )
-    else:
-        st.info("ℹ️ You are currently punched OUT")
-
-
     already_in = (
         (df["name"] == user)
         & (pd.to_datetime(df["date"]).dt.date == today)
@@ -311,6 +279,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
