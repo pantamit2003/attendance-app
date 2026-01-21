@@ -57,9 +57,11 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
 def get_allowed_warehouses(user):
     res = (
         supabase.table("user_warehouses")
-        .select("warehouse:warehouses(lat, lon)")
-        .ilike("user_name", user)   # 👈 CASE INSENSITIVE
+        .select("warehouse:warehouse_id(lat, lon)")
+        .eq("user_name", user)
         .execute()
+    )
+    return res.data or []
     )
     st.write("🧪 DEBUG DB RESPONSE:", res.data)
     return res.data or []
@@ -238,5 +240,6 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
