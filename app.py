@@ -32,7 +32,8 @@ USERS = {
     "Prakashkumarjha": {"password": "1234"},
     "amit": {"password": "1234"},
     "Himanshu": {"password": "1234"},
-}
+    "Rahul": {"password": "1234"},
+    }
 
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
@@ -113,7 +114,8 @@ if "logged" not in st.session_state:
 
 st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
 
-# ================= LOGIN (FIXED) =================
+# ================= LOGIN =================
+
 if not st.session_state.logged:
     u_raw = st.text_input("Username")
     p = st.text_input("Password", type="password")
@@ -139,6 +141,7 @@ if not st.session_state.logged:
         else:
             st.error("Invalid credentials")
 
+
 # ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
     user = st.session_state.user
@@ -156,7 +159,6 @@ if st.session_state.logged and not st.session_state.admin:
 
     df = load_data()
     today = now_ist().date()
-
     already_in = (
         (df["name"] == user)
         & (pd.to_datetime(df["date"]).dt.date == today)
@@ -177,7 +179,8 @@ if st.session_state.logged and not st.session_state.admin:
     valid_location = False
     for row in allowed:
         wh = row["warehouses"]
-        if distance_in_meters(lat, lon, wh["lat"], wh["lon"]) <= ALLOWED_DISTANCE:
+        dist = distance_in_meters(lat, lon, wh["lat"], wh["lon"])
+        if dist <= ALLOWED_DISTANCE:
             valid_location = True
             break
 
@@ -189,8 +192,13 @@ if st.session_state.logged and not st.session_state.admin:
 
     with col1:
         if st.button("✅ PUNCH IN"):
-            if photo is None or already_in:
+            if photo is None:
+                st.error("📷 Photo compulsory hai")
                 st.stop()
+            if already_in:
+                st.error("Already punched IN today")
+                st.stop()
+
             save_row({
                 "date": today.isoformat(),
                 "name": user,
@@ -204,8 +212,13 @@ if st.session_state.logged and not st.session_state.admin:
 
     with col2:
         if st.button("⛔ PUNCH OUT"):
-            if photo is None or not already_in or already_out:
+            if photo is None:
+                st.error("📷 Photo compulsory hai")
                 st.stop()
+            if not already_in or already_out:
+                st.error("Invalid Punch OUT")
+                st.stop()
+
             save_row({
                 "date": today.isoformat(),
                 "name": user,
@@ -226,14 +239,39 @@ if st.session_state.logged and st.session_state.admin:
     tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
     with tab1:
-        filtered_df = df
+        filter = st.selectbox(
+            "📅 Date Filter",
+            ["Today", "Yesterday", "Last 7 Days", "Custom Date Range"],
+        )
+
+        if filter == "Today":
+            filtered_df = df[df["date"].dt.date == today]
+        elif filter == "Yesterday":
+            filtered_df = df[df["date"].dt.date == today - pd.Timedelta(days=1)]
+        elif filter == "Last 7 Days":
+            filtered_df = df[
+                (df["date"].dt.date >= today - pd.Timedelta(days=7))
+                & (df["date"].dt.date <= today)
+            ]
+        else:
+            s, e = st.columns(2)
+            start = s.date_input("Start", today - pd.Timedelta(days=7))
+            end = e.date_input("End", today)
+            filtered_df = df[
+                (df["date"].dt.date >= start) & (df["date"].dt.date <= end)
+            ]
+
         st.dataframe(filtered_df)
 
     with tab2:
-        for _, row in df.iterrows():
+        for _, row in filtered_df.iterrows():
             if row["photo"]:
                 url = supabase.storage.from_("attendance-photos").get_public_url(row["photo"])
-                st.image(url, caption=f"{row['name']} | {row['punch_type']}", width=220)
+                st.image(
+                    url,
+                    caption=f"{row['name']} | {row['punch_type']}",
+                    width=220,
+                )
 
 # ================= LOGOUT =================
 if st.session_state.logged:
@@ -241,3 +279,13 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
+
+
+
+
+
+
+
+
+
