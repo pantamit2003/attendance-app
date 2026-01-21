@@ -5,6 +5,7 @@ from datetime import datetime
 import math
 import uuid
 from supabase.client import create_client
+import streamlit.components.v1 as components
 
 # ================= SUPABASE =================
 supabase = create_client(
@@ -279,6 +280,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
