@@ -58,11 +58,12 @@ def get_allowed_warehouses(user):
     res = (
         supabase.table("user_warehouses")
         .select("warehouse:warehouses(lat, lon)")
-        .eq("user_name", user.lower())
+        .ilike("user_name", user)   # 👈 CASE INSENSITIVE
         .execute()
     )
     st.write("🧪 DEBUG DB RESPONSE:", res.data)
     return res.data or []
+
 
 def save_photo(photo):
     if photo is None:
@@ -237,3 +238,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
