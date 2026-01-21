@@ -180,19 +180,40 @@ if st.session_state.logged and not st.session_state.admin:
 
     # 🔥 FIX 3: warehouses list loop
     valid_location = False
-    for row in allowed:
-        for wh in row["warehouses"]:
+
+for row in allowed:
+    wh_data = row.get("warehouses")
+
+    if not wh_data:
+        continue
+
+    # 🔹 Case: single dict
+    if isinstance(wh_data, dict):
+        wh_list = [wh_data]
+    # 🔹 Case: list
+    elif isinstance(wh_data, list):
+        wh_list = wh_data
+    else:
+        continue
+
+    for wh in wh_list:
+        try:
             dist = distance_in_meters(
                 lat,
                 lon,
-                float(wh["lat"]),
-                float(wh["lon"])
+                float(wh.get("lat")),
+                float(wh.get("lon"))
             )
-            if dist <= ALLOWED_DISTANCE:
-                valid_location = True
-                break
-        if valid_location:
+        except:
+            continue
+
+        if dist <= ALLOWED_DISTANCE:
+            valid_location = True
             break
+
+    if valid_location:
+        break
+
 
     if not valid_location:
         st.error("❌ Aap allowed warehouse location par nahi ho")
@@ -246,3 +267,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
