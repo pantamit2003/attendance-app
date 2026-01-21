@@ -55,35 +55,19 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def get_allowed_warehouses(user):
-    # Step 1: user ke warehouse IDs lao
-    res = (
-        supabase.table("user_warehouses")
-        .select("warehouse_id")
-        .eq("user_name", user)
-        .execute()
-    )
+    try:
+        res = (
+            supabase.table("user_warehouses")
+            .select("warehouse_id")
+            .eq("user_name", user)
+            .execute()
+        )
+        return res.data or []
 
-    if not res.data:
-        return []
-
-    warehouse_ids = [r["warehouse_id"] for r in res.data if r["warehouse_id"]]
-
-    if not warehouse_ids:
-        return []
-
-    # Step 2: warehouses table se lat/lon lao
-    res2 = (
-        supabase.table("warehouses")
-        .select("lat, lon")
-        .in_("id", warehouse_ids)
-        .execute()
-    )
-
-    # Same structure return karo jaisa pehle expect kar rahe the
-    return [{"warehouse": w} for w in (res2.data or [])]
-    return res.data or []
-    st.write("🧪 DEBUG DB RESPONSE:", res.data)
-    return res.data or []
+    except Exception as e:
+        st.error("DB ERROR (raw):")
+        st.write(e)
+        raise
 
 
 def save_photo(photo):
@@ -259,6 +243,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
