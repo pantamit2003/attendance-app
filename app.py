@@ -78,8 +78,11 @@ def save_row(row):
     supabase.table("attendance").insert(row).execute()
 
 def load_data():
+    cols = ["date", "name", "punch_type", "time", "photo", "lat", "lon"]
     res = supabase.table("attendance").select("*").execute()
-    return pd.DataFrame(res.data or [])
+    if not res.data:
+        return pd.DataFrame(columns=cols)
+    return pd.DataFrame(res.data)[cols]
 
 # ================= GPS =================
 st.markdown("""
@@ -244,3 +247,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
