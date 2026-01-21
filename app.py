@@ -69,7 +69,7 @@ def save_photo(photo):
     if photo is None:
         return ""
     filename = f"{uuid.uuid4()}.jpg"
-    supabase.storage.from_("attendance-photos").upload(
+    supabase.storage.from_("ATTENDANCE-PHOTOS").upload(
         filename,
         photo.getvalue(),
         {"content-type": "image/jpeg"},
@@ -238,4 +238,5 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
