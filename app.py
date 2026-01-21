@@ -156,9 +156,17 @@ if st.session_state.logged and not st.session_state.admin:
     df = load_data()
     today = now_ist().date()
 
-    already_in = ((df["name"] == user) & (pd.to_datetime(df["date"]).dt.date == today) & (df["punch_type"] == "IN")).any()
-    already_out = ((df["name"] == user) & (pd.to_datetime(df["date"]).dt.date == today) & (df["punch_type"] == "OUT")).any()
+    already_in = (
+    (df["name"].str.lower() == user.lower())
+    & (pd.to_datetime(df["date"]).dt.date == today)
+    & (df["punch_type"] == "IN")
+    ).any()
 
+    already_out = (
+    (df["name"].str.lower() == user.lower())
+    & (pd.to_datetime(df["date"]).dt.date == today)
+    & (df["punch_type"] == "OUT")
+    ).any()
     col1, col2 = st.columns(2)
 
     with col1:
@@ -169,7 +177,7 @@ if st.session_state.logged and not st.session_state.admin:
 
             save_row({
                 "date": today.isoformat(),
-                "name": user,
+                "name": user.lower(),
                 "punch_type": "IN",
                 "time": now_ist().strftime("%H:%M:%S"),
                 "lat": lat,
@@ -199,3 +207,4 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
