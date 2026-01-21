@@ -54,7 +54,6 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
     )
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-# 🔥 FIX 1: case-insensitive username
 def get_allowed_warehouses(user):
     res = (
         supabase.table("user_warehouses")
@@ -76,19 +75,11 @@ def save_photo(photo):
     return filename
 
 def save_row(row):
-    try:
-        supabase.table("attendance").insert(row).execute()
-    except Exception as e:
-        st.error("❌ Attendance save nahi hui")
-        st.exception(e)
-        st.stop()
+    supabase.table("attendance").insert(row).execute()
 
 def load_data():
     res = supabase.table("attendance").select("*").execute()
-    cols = ["date", "name", "punch_type", "time", "photo", "lat", "lon"]
-    if not res.data:
-        return pd.DataFrame(columns=cols)
-    return pd.DataFrame(res.data)
+    return pd.DataFrame(res.data or [])
 
 # ================= GPS =================
 st.markdown("""
@@ -122,8 +113,8 @@ if not st.session_state.logged:
 
     if st.button("Login"):
         u_clean = u_raw.strip().lower()
-
         matched_user = None
+
         for real_user in USERS:
             if real_user.lower() == u_clean:
                 matched_user = real_user
@@ -147,7 +138,6 @@ if st.session_state.logged and not st.session_state.admin:
     st.subheader(f"👤 Welcome {user}")
     st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
 
-    # 🔥 FIX 2: safe query params read
     params = st.query_params
     try:
         lat = float(params.get("lat"))
@@ -178,42 +168,29 @@ if st.session_state.logged and not st.session_state.admin:
         st.error("❌ Aap kisi warehouse ke liye allowed nahi ho")
         st.stop()
 
-    # 🔥 FIX 3: warehouses list loop
     valid_location = False
-
-for row in allowed:
-    wh_data = row.get("warehouses")
-
-    if not wh_data:
-        continue
-
-    # 🔹 Case: single dict
-    if isinstance(wh_data, dict):
-        wh_list = [wh_data]
-    # 🔹 Case: list
-    elif isinstance(wh_data, list):
-        wh_list = wh_data
-    else:
-        continue
-
-    for wh in wh_list:
-        try:
-            dist = distance_in_meters(
-                lat,
-                lon,
-                float(wh.get("lat")),
-                float(wh.get("lon"))
-            )
-        except:
+    for row in allowed:
+        wh_data = row.get("warehouses")
+        if not wh_data:
             continue
 
-        if dist <= ALLOWED_DISTANCE:
-            valid_location = True
+        wh_list = wh_data if isinstance(wh_data, list) else [wh_data]
+
+        for wh in wh_list:
+            try:
+                dist = distance_in_meters(
+                    lat, lon,
+                    float(wh.get("lat")),
+                    float(wh.get("lon"))
+                )
+            except:
+                continue
+
+            if dist <= ALLOWED_DISTANCE:
+                valid_location = True
+                break
+        if valid_location:
             break
-
-    if valid_location:
-        break
-
 
     if not valid_location:
         st.error("❌ Aap allowed warehouse location par nahi ho")
@@ -221,45 +198,45 @@ for row in allowed:
 
     col1, col2 = st.columns(2)
 
-    with col1:
-        if st.button("✅ PUNCH IN"):
-            if photo is None:
-                st.error("📷 Photo compulsory hai")
-                st.stop()
-            if already_in:
-                st.error("Already punched IN today")
-                st.stop()
+    if not already_in:
+        with col1:
+            if st.button("✅ PUNCH IN"):
+                if photo is None:
+                    st.error("📷 Photo compulsory hai")
+                    st.stop()
 
-            save_row({
-                "date": today.isoformat(),
-                "name": user,
-                "punch_type": "IN",
-                "time": now_ist().strftime("%H:%M:%S"),
-                "photo": save_photo(photo),
-                "lat": lat,
-                "lon": lon,
-            })
-            st.success("Punch IN successful")
+                save_row({
+                    "date": today.isoformat(),
+                    "name": user,
+                    "punch_type": "IN",
+                    "time": now_ist().strftime("%H:%M:%S"),
+                    "photo": save_photo(photo),
+                    "lat": lat,
+                    "lon": lon,
+                })
+                st.success("Punch IN successful")
+                st.rerun()
 
-    with col2:
-        if st.button("⛔ PUNCH OUT"):
-            if photo is None:
-                st.error("📷 Photo compulsory hai")
-                st.stop()
-            if not already_in or already_out:
-                st.error("Invalid Punch OUT")
-                st.stop()
+    elif already_in and not already_out:
+        with col2:
+            if st.button("⛔ PUNCH OUT"):
+                if photo is None:
+                    st.error("📷 Photo compulsory hai")
+                    st.stop()
 
-            save_row({
-                "date": today.isoformat(),
-                "name": user,
-                "punch_type": "OUT",
-                "time": now_ist().strftime("%H:%M:%S"),
-                "photo": save_photo(photo),
-                "lat": lat,
-                "lon": lon,
-            })
-            st.success("Punch OUT successful")
+                save_row({
+                    "date": today.isoformat(),
+                    "name": user,
+                    "punch_type": "OUT",
+                    "time": now_ist().strftime("%H:%M:%S"),
+                    "photo": save_photo(photo),
+                    "lat": lat,
+                    "lon": lon,
+                })
+                st.success("Punch OUT successful")
+                st.rerun()
+    else:
+        st.success("✅ Aaj ka attendance complete ho chuka hai")
 
 # ================= LOGOUT =================
 if st.session_state.logged:
@@ -267,4 +244,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
-
