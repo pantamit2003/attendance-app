@@ -12,26 +12,26 @@ supabase = create_client(
 )
 
 # ================= CONFIG =================
-ALLOWED_DISTANCE = 800
+ALLOWED_DISTANCE = 800  # meters
 IST = pytz.timezone("Asia/Kolkata")
 
 USERS = {
-    "Ajad": {"password": "1234"},
-    "Jitender": {"password": "1234"},
-    "RamNiwas": {"password": "1234"},
-    "Lakshman": {"password": "1234"},
-    "premPatil": {"password": "1234"},
-    "Mithlesh": {"password": "1234"},
-    "Dharmendra": {"password": "1234"},
-    "Deepak": {"password": "1234"},
-    "Rajan": {"password": "1234"},
-    "Shyamjeesharma": {"password": "1234"},
-    "Surjesh": {"password": "1234"},
-    "Bittu": {"password": "1234"},
-    "Prakashkumarjha": {"password": "1234"},
+    "ajad": {"password": "1234"},
+    "jitender": {"password": "1234"},
+    "ramniwas": {"password": "1234"},
+    "lakshman": {"password": "1234"},
+    "prempatil": {"password": "1234"},
+    "mithlesh": {"password": "1234"},
+    "dharmendra": {"password": "1234"},
+    "deepak": {"password": "1234"},
+    "rajan": {"password": "1234"},
+    "shyamjeesharma": {"password": "1234"},
+    "surjesh": {"password": "1234"},
+    "bittu": {"password": "1234"},
+    "prakashkumarjha": {"password": "1234"},
     "amit": {"password": "1234"},
-    "Himanshu": {"password": "1234"},
-    "Rahul": {"password": "1234"},
+    "himanshu": {"password": "1234"},
+    "rahul": {"password": "1234"},
 }
 
 ADMIN_USER = "admin"
@@ -53,14 +53,14 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
     )
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-def get_allowed_warehouses(user):
+def get_allowed_warehouse_ids(user):
     res = (
         supabase.table("user_warehouses")
         .select("warehouse_id")
         .eq("user_name", user)
         .execute()
     )
-    return res.data or []
+    return [r["warehouse_id"] for r in (res.data or []) if r["warehouse_id"]]
 
 def load_data():
     res = supabase.table("attendance").select("*").execute()
@@ -102,18 +102,17 @@ if not st.session_state.logged:
     p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        u_clean = u_raw.strip().lower()
+        u = u_raw.strip().lower()
 
-        if u_clean == ADMIN_USER and p == ADMIN_PASSWORD:
+        if u == ADMIN_USER and p == ADMIN_PASSWORD:
             st.session_state.logged = True
             st.session_state.admin = True
             st.rerun()
 
-        for real_user in USERS:
-            if real_user.lower() == u_clean and USERS[real_user]["password"] == p:
-                st.session_state.logged = True
-                st.session_state.user = real_user.lower()
-                st.rerun()
+        if u in USERS and USERS[u]["password"] == p:
+            st.session_state.logged = True
+            st.session_state.user = u
+            st.rerun()
 
         st.error("Invalid credentials")
 
@@ -133,18 +132,30 @@ if st.session_state.logged and not st.session_state.admin:
     lon = float(params["lon"][0])
     st.write("GPS:", lat, lon)
 
-    allowed = get_allowed_warehouses(user)
-    if not allowed:
+    # ===== WAREHOUSE CHECK =====
+    warehouse_ids = get_allowed_warehouse_ids(user)
+    if not warehouse_ids:
         st.error("❌ Aap kisi warehouse ke liye allowed nahi ho")
         st.stop()
 
     valid_location = False
-    for row in allowed:
-        warehouse_id = row["warehouse_id"]
-        res = supabase.table("warehouses").select("lat, lon").eq("id", warehouse_id).single().execute()
-        wh = res.data
 
-        dist = distance_in_meters(lat, lon, wh["lat"], wh["lon"])
+    for wid in warehouse_ids:
+        res = (
+            supabase.table("warehouses")
+            .select("lat, lon")
+            .eq("id", wid)
+            .execute()
+        )
+
+        if not res.data:
+            continue
+
+        wh = res.data[0]
+        if wh["lat"] is None or wh["lon"] is None:
+            continue
+
+        dist = distance_in_meters(lat, lon, float(wh["lat"]), float(wh["lon"]))
         if dist <= ALLOWED_DISTANCE:
             valid_location = True
             break
@@ -153,31 +164,29 @@ if st.session_state.logged and not st.session_state.admin:
         st.error("❌ Aap allowed warehouse location par nahi ho")
         st.stop()
 
+    # ===== ATTENDANCE LOGIC =====
     df = load_data()
     today = now_ist().date()
 
     already_in = (
-    (df["name"].str.lower() == user.lower())
-    & (pd.to_datetime(df["date"]).dt.date == today)
-    & (df["punch_type"] == "IN")
+        (df["name"].str.lower() == user)
+        & (pd.to_datetime(df["date"]).dt.date == today)
+        & (df["punch_type"] == "IN")
     ).any()
 
     already_out = (
-    (df["name"].str.lower() == user.lower())
-    & (pd.to_datetime(df["date"]).dt.date == today)
-    & (df["punch_type"] == "OUT")
+        (df["name"].str.lower() == user)
+        & (pd.to_datetime(df["date"]).dt.date == today)
+        & (df["punch_type"] == "OUT")
     ).any()
+
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("✅ PUNCH IN"):
-            if already_in:
-                st.error("Already punched IN")
-                st.stop()
-
+        if st.button("✅ PUNCH IN", disabled=already_in):
             save_row({
                 "date": today.isoformat(),
-                "name": user.lower(),
+                "name": user,
                 "punch_type": "IN",
                 "time": now_ist().strftime("%H:%M:%S"),
                 "lat": lat,
@@ -186,11 +195,7 @@ if st.session_state.logged and not st.session_state.admin:
             st.success("Punch IN successful")
 
     with col2:
-        if st.button("⛔ PUNCH OUT"):
-            if not already_in or already_out:
-                st.error("Invalid Punch OUT")
-                st.stop()
-
+        if st.button("⛔ PUNCH OUT", disabled=not already_in or already_out):
             save_row({
                 "date": today.isoformat(),
                 "name": user,
@@ -207,4 +212,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
-
