@@ -62,7 +62,6 @@ def get_allowed_warehouses(user):
         .execute()
     )
     return res.data or []
-    )
     st.write("🧪 DEBUG DB RESPONSE:", res.data)
     return res.data or []
 
@@ -240,6 +239,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
