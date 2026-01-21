@@ -3,7 +3,6 @@ import pandas as pd
 import pytz
 from datetime import datetime
 import math
-import uuid
 from supabase.client import create_client
 
 # ================= SUPABASE =================
@@ -13,7 +12,7 @@ supabase = create_client(
 )
 
 # ================= CONFIG =================
-ALLOWED_DISTANCE = 800  # meters (desktop GPS ke liye safe)
+ALLOWED_DISTANCE = 800
 IST = pytz.timezone("Asia/Kolkata")
 
 USERS = {
@@ -55,40 +54,22 @@ def distance_in_meters(lat1, lon1, lat2, lon2):
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def get_allowed_warehouses(user):
-    try:
-        res = (
-            supabase.table("user_warehouses")
-            .select("warehouse_id")
-            .eq("user_name", user)
-            .execute()
-        )
-        return res.data or []
-
-    except Exception as e:
-        st.error("DB ERROR (raw):")
-        st.write(e)
-        raise
-
-
-def save_photo(photo):
-    if photo is None:
-        return ""
-    filename = f"{uuid.uuid4()}.jpg"
-    supabase.storage.from_("ATTENDANCE-PHOTOS").upload(
-        filename,
-        photo.getvalue(),
-        {"content-type": "image/jpeg"},
+    res = (
+        supabase.table("user_warehouses")
+        .select("warehouse_id")
+        .eq("user_name", user)
+        .execute()
     )
-    return filename
-
-def save_row(row):
-    supabase.table("attendance").insert(row).execute()
+    return res.data or []
 
 def load_data():
     res = supabase.table("attendance").select("*").execute()
     if not res.data:
-        return pd.DataFrame(columns=["date","name","punch_type","time","photo","lat","lon"])
+        return pd.DataFrame(columns=["date","name","punch_type","time","lat","lon"])
     return pd.DataFrame(res.data)
+
+def save_row(row):
+    supabase.table("attendance").insert(row).execute()
 
 # ================= GPS SCRIPT =================
 st.markdown("""
@@ -113,7 +94,7 @@ if "logged" not in st.session_state:
     st.session_state.user = None
     st.session_state.admin = False
 
-st.title("📸 SWISS MILITARY ATTENDANCE SYSTEM")
+st.title("📍 SWISS MILITARY ATTENDANCE SYSTEM (NO PHOTO)")
 
 # ================= LOGIN =================
 if not st.session_state.logged:
@@ -150,9 +131,7 @@ if st.session_state.logged and not st.session_state.admin:
 
     lat = float(params["lat"][0])
     lon = float(params["lon"][0])
-    st.write("🧪 DEBUG GPS:", lat, lon)
-
-    photo = st.camera_input("📷 Take Photo")
+    st.write("GPS:", lat, lon)
 
     allowed = get_allowed_warehouses(user)
     if not allowed:
@@ -160,48 +139,30 @@ if st.session_state.logged and not st.session_state.admin:
         st.stop()
 
     valid_location = False
-    for i, row in enumerate(allowed):
-        st.write(f"🧪 DEBUG ROW {i}:", row)
+    for row in allowed:
+        warehouse_id = row["warehouse_id"]
+        res = supabase.table("warehouses").select("lat, lon").eq("id", warehouse_id).single().execute()
+        wh = res.data
 
-        wh = row.get("warehouse")
-        if not wh:
-            st.write("❌ warehouse NULL")
-            continue
-
-        dist = distance_in_meters(lat, lon, float(wh["lat"]), float(wh["lon"]))
-        st.write("📏 DEBUG DISTANCE (m):", dist)
-
+        dist = distance_in_meters(lat, lon, wh["lat"], wh["lon"])
         if dist <= ALLOWED_DISTANCE:
             valid_location = True
             break
-
-    st.write("✅ DEBUG VALID LOCATION:", valid_location)
 
     if not valid_location:
         st.error("❌ Aap allowed warehouse location par nahi ho")
         st.stop()
 
-    col1, col2 = st.columns(2)
-    today = now_ist().date()
     df = load_data()
+    today = now_ist().date()
 
-    already_in = (
-        (df["name"] == user)
-        & (pd.to_datetime(df["date"]).dt.date == today)
-        & (df["punch_type"] == "IN")
-    ).any()
+    already_in = ((df["name"] == user) & (pd.to_datetime(df["date"]).dt.date == today) & (df["punch_type"] == "IN")).any()
+    already_out = ((df["name"] == user) & (pd.to_datetime(df["date"]).dt.date == today) & (df["punch_type"] == "OUT")).any()
 
-    already_out = (
-        (df["name"] == user)
-        & (pd.to_datetime(df["date"]).dt.date == today)
-        & (df["punch_type"] == "OUT")
-    ).any()
+    col1, col2 = st.columns(2)
 
     with col1:
         if st.button("✅ PUNCH IN"):
-            if photo is None:
-                st.error("📷 Photo compulsory hai")
-                st.stop()
             if already_in:
                 st.error("Already punched IN")
                 st.stop()
@@ -211,7 +172,6 @@ if st.session_state.logged and not st.session_state.admin:
                 "name": user,
                 "punch_type": "IN",
                 "time": now_ist().strftime("%H:%M:%S"),
-                "photo": save_photo(photo),
                 "lat": lat,
                 "lon": lon,
             })
@@ -219,9 +179,6 @@ if st.session_state.logged and not st.session_state.admin:
 
     with col2:
         if st.button("⛔ PUNCH OUT"):
-            if photo is None:
-                st.error("📷 Photo compulsory hai")
-                st.stop()
             if not already_in or already_out:
                 st.error("Invalid Punch OUT")
                 st.stop()
@@ -231,7 +188,6 @@ if st.session_state.logged and not st.session_state.admin:
                 "name": user,
                 "punch_type": "OUT",
                 "time": now_ist().strftime("%H:%M:%S"),
-                "photo": save_photo(photo),
                 "lat": lat,
                 "lon": lon,
             })
@@ -243,9 +199,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
-
-
-
-
-
-
