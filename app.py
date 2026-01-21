@@ -233,54 +233,53 @@ if st.session_state.logged and not st.session_state.admin:
 # ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
     df = load_data()
+    df["date"] = pd.to_datetime(df["date"])
+    today = now_ist().date()
 
-    if df.empty:
-        st.info("No attendance data")
-    else:
-        df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
-        today_str = now_ist().date().isoformat()
+    tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
 
-        tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Photos"])
+    with tab1:
+        filter = st.selectbox(
+            "📅 Date Filter",
+            ["Today", "Yesterday", "Last 7 Days", "Custom Date Range"],
+        )
 
-        with tab1:
-            filter = st.selectbox(
-                "📅 Date Filter",
-                ["Today", "Yesterday", "Last 7 Days", "Custom"]
-            )
+        if filter == "Today":
+            filtered_df = df[df["date"].dt.date == today]
+        elif filter == "Yesterday":
+            filtered_df = df[df["date"].dt.date == today - pd.Timedelta(days=1)]
+        elif filter == "Last 7 Days":
+            filtered_df = df[
+                (df["date"].dt.date >= today - pd.Timedelta(days=7))
+                & (df["date"].dt.date <= today)
+            ]
+        else:
+            s, e = st.columns(2)
+            start = s.date_input("Start", today - pd.Timedelta(days=7))
+            end = e.date_input("End", today)
+            filtered_df = df[
+                (df["date"].dt.date >= start) & (df["date"].dt.date <= end)
+            ]
 
-            if filter == "Today":
-                filtered_df = df[df["date"] == today_str]
+        st.dataframe(filtered_df)
 
-            elif filter == "Yesterday":
-                y = (now_ist().date() - pd.Timedelta(days=1)).isoformat()
-                filtered_df = df[df["date"] == y]
+    with tab2:
+        for _, row in filtered_df.iterrows():
+            if row["photo"]:
+                url = supabase.storage.from_("attendance-photos").get_public_url(row["photo"])
+                st.image(
+                    url,
+                    caption=f"{row['name']} | {row['punch_type']}",
+                    width=220,
+                )
 
-            elif filter == "Last 7 Days":
-                last7 = (now_ist().date() - pd.Timedelta(days=7)).isoformat()
-                filtered_df = df[df["date"] >= last7]
-
-            else:
-                s, e = st.columns(2)
-                start = s.date_input("Start")
-                end = e.date_input("End")
-                filtered_df = df[
-                    (df["date"] >= start.isoformat())
-                    & (df["date"] <= end.isoformat())
-                ]
-
-            st.dataframe(filtered_df)
-
-        with tab2:
-            for _, row in filtered_df.iterrows():
-                if row["photo"]:
-                    url = supabase.storage.from_("attendance-photos").get_public_url(row["photo"])
-                    st.image(url, caption=f"{row['name']} | {row['punch_type']}", width=220)
 # ================= LOGOUT =================
 if st.session_state.logged:
     if st.button("Logout"):
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
