@@ -248,49 +248,51 @@ if st.session_state.logged and not st.session_state.admin:
     
     col1, col2 = st.columns(2)
     
-    with col1:
-        if st.button("✅ PUNCH IN", disabled=already_in):
-            
-            if not photo:
-                st.warning("📸 Punch IN ke liye photo compulsory hai")
-                st.stop()
+with col1:
+    if st.button("✅ PUNCH IN", disabled=already_in):
 
-            photo_path = upload_photo(photo, user)
-            
-            save_row({
-                "date": today.isoformat(),
-                "name": user,
-                "punch_type": "IN",
-                "time": now_ist().strftime("%H:%M:%S"),
-                "lat": lat,
-                "lon": lon,
-                "warehouse_id": nearest_wh["id"],
-                "warehouse_name": nearest_wh["name"],
-                "photo": photo_path,
-            })
-            st.success("Punch IN successful")
+        if not photo:
+            st.warning("📸 Punch IN ke liye photo compulsory hai")
+            st.stop()
+
+        photo_path = upload_photo(photo, user)
+
+        save_row({
+            "date": today.isoformat(),
+            "name": user,
+            "punch_type": "IN",
+            "time": now_ist().strftime("%H:%M:%S"),
+            "lat": lat,
+            "lon": lon,
+            "warehouse_id": nearest_wh["id"],
+            "warehouse_name": nearest_wh["name"],
+            "photo": photo_path,
+        })
+
+        st.success("Punch IN successful")
     
-    with col2:
-        if st.button("⛔ PUNCH OUT", disabled=not already_in or already_out):
+with col2:
+    if st.button("⛔ PUNCH OUT", disabled=not already_in or already_out):
 
-            if not photo:
-                st.warning("📸 Punch OUT ke liye photo compulsory hai")
-                st.stop()
+        if not photo:
+            st.warning("📸 Punch OUT ke liye photo compulsory hai")
+            st.stop()
 
-            photo_path = upload_photo(photo, user)
-            
-            save_row({
-                "date": today.isoformat(),
-                "name": user,
-                "punch_type": "OUT",
-                "time": now_ist().strftime("%H:%M:%S"),
-                "lat": lat,
-                "lon": lon,
-                "warehouse_id": nearest_wh["id"],
-                "warehouse_name": nearest_wh["name"],
-                "photo": photo_path,
-            })
-            st.success("Punch OUT successful")
+        photo_path = upload_photo(photo, user)
+
+        save_row({
+            "date": today.isoformat(),
+            "name": user,
+            "punch_type": "OUT",
+            "time": now_ist().strftime("%H:%M:%S"),
+            "lat": lat,
+            "lon": lon,
+            "warehouse_id": nearest_wh["id"],
+            "warehouse_name": nearest_wh["name"],
+            "photo": photo_path,
+        })
+
+        st.success("Punch OUT successful")
 
 
 # ================= ADMIN PANEL =================
@@ -352,6 +354,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
