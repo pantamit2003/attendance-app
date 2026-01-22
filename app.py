@@ -206,9 +206,64 @@ if st.session_state.logged and not st.session_state.admin:
             })
             st.success("Punch OUT successful")
 
+
+# ================= ADMIN PANEL =================
+if st.session_state.logged and st.session_state.admin:
+
+    df = load_data()
+    df["date"] = pd.to_datetime(df["date"])
+    today = now_ist().date()
+
+    # ---- COMMON FILTER ----
+    filter = st.selectbox(
+        "📅 Date Filter",
+        ["Today", "Yesterday", "Last 7 Days", "Custom Date Range"],
+    )
+
+    if filter == "Today":
+        filtered_df = df[df["date"].dt.date == today]
+    elif filter == "Yesterday":
+        filtered_df = df[df["date"].dt.date == today - pd.Timedelta(days=1)]
+    elif filter == "Last 7 Days":
+        filtered_df = df[
+            (df["date"].dt.date >= today - pd.Timedelta(days=7)) &
+            (df["date"].dt.date <= today)
+        ]
+    else:
+        s, e = st.columns(2)
+        start = s.date_input("Start", today - pd.Timedelta(days=7))
+        end = e.date_input("End", today)
+        filtered_df = df[
+            (df["date"].dt.date >= start) &
+            (df["date"].dt.date <= end)
+        ]
+
+    tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
+
+    with tab1:
+        if filtered_df.empty:
+            st.warning("⚠️ No data found")
+        else:
+            st.dataframe(filtered_df)
+
+    with tab2:
+        if filtered_df.empty:
+            st.info("📸 No photos to display")
+        else:
+            for _, row in filtered_df.iterrows():
+                if "photo" in filtered_df.columns and row.get("photo"):
+                    url = supabase.storage.from_("attendance-photos").get_public_url(row["photo"])
+                    st.image(
+                        url,
+                        caption=f"{row['name']} | {row['punch_type']}",
+                        width=220,
+                    )
+
+
 # ================= LOGOUT =================
 if st.session_state.logged:
     if st.button("Logout"):
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
