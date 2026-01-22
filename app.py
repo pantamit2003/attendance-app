@@ -184,50 +184,85 @@ if st.session_state.logged and not st.session_state.admin:
     )
 
     # ===== ATTENDANCE LOGIC =====
-    df = load_data()
-    today = now_ist().date()
+    # ===== ATTENDANCE LOGIC =====
+df = load_data()
+today = now_ist().date()
 
-    already_in = (
+already_in = (
+    (df["name"].str.lower() == user)
+    & (pd.to_datetime(df["date"]).dt.date == today)
+    & (df["punch_type"] == "IN")
+).any()
+
+already_out = (
+    (df["name"].str.lower() == user)
+    & (pd.to_datetime(df["date"]).dt.date == today)
+    & (df["punch_type"] == "OUT")
+).any()
+
+# ===== WORK TIMER (ONLY BETWEEN IN & OUT) =====
+if already_in and not already_out:
+
+    today_in_df = df[
         (df["name"].str.lower() == user)
         & (pd.to_datetime(df["date"]).dt.date == today)
         & (df["punch_type"] == "IN")
-    ).any()
+    ]
 
-    already_out = (
-        (df["name"].str.lower() == user)
-        & (pd.to_datetime(df["date"]).dt.date == today)
-        & (df["punch_type"] == "OUT")
-    ).any()
+    punch_in_time = pd.to_datetime(
+        today_in_df.iloc[0]["date"] + " " + today_in_df.iloc[0]["time"]
+    )
 
-    col1, col2 = st.columns(2)
+    now_time = now_ist()
+    elapsed = now_time - punch_in_time
 
-    with col1:
-        if st.button("✅ PUNCH IN", disabled=already_in):
-            save_row({
-                "date": today.isoformat(),
-                "name": user,
-                "punch_type": "IN",
-                "time": now_ist().strftime("%H:%M:%S"),
-                "lat": lat,
-                "lon": lon,
-                "warehouse_id": nearest_wh["id"],
-                "warehouse_name": nearest_wh["name"],
-            })
-            st.success("Punch IN successful")
+    hours = elapsed.seconds // 3600
+    minutes = (elapsed.seconds % 3600) // 60
 
-    with col2:
-        if st.button("⛔ PUNCH OUT", disabled=not already_in or already_out):
-            save_row({
-                "date": today.isoformat(),
-                "name": user,
-                "punch_type": "OUT",
-                "time": now_ist().strftime("%H:%M:%S"),
-                "lat": lat,
-                "lon": lon,
-                "warehouse_id": nearest_wh["id"],
-                "warehouse_name": nearest_wh["name"],
-            })
-            st.success("Punch OUT successful")
+    st.info(f"⏱️ Working Time: {hours} hours {minutes} minutes")
+
+    SHIFT_HOURS = 8
+    worked_hours = elapsed.seconds / 3600
+
+    if worked_hours >= SHIFT_HOURS:
+        st.success("✅ Working hours complete ho chuke hain")
+    else:
+        remaining = SHIFT_HOURS - worked_hours
+        st.warning(f"⌛ {remaining:.1f} hours remaining")
+
+elif already_out:
+    st.success("🛑 Punch OUT ho chuka hai. Aaj ka kaam complete.")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("✅ PUNCH IN", disabled=already_in):
+        save_row({
+            "date": today.isoformat(),
+            "name": user,
+            "punch_type": "IN",
+            "time": now_ist().strftime("%H:%M:%S"),
+            "lat": lat,
+            "lon": lon,
+            "warehouse_id": nearest_wh["id"],
+            "warehouse_name": nearest_wh["name"],
+        })
+        st.success("Punch IN successful")
+
+with col2:
+    if st.button("⛔ PUNCH OUT", disabled=not already_in or already_out):
+        save_row({
+            "date": today.isoformat(),
+            "name": user,
+            "punch_type": "OUT",
+            "time": now_ist().strftime("%H:%M:%S"),
+            "lat": lat,
+            "lon": lon,
+            "warehouse_id": nearest_wh["id"],
+            "warehouse_name": nearest_wh["name"],
+        })
+        st.success("Punch OUT successful")
+
 
 # ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
@@ -288,4 +323,5 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
