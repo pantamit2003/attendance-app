@@ -65,11 +65,46 @@ def get_allowed_warehouse_ids(user):
 def load_data():
     res = supabase.table("attendance").select("*").execute()
     if not res.data:
-        return pd.DataFrame(columns=["date","name","punch_type","time","lat","lon"])
+        return pd.DataFrame(columns=["date","name","punch_type","time","lat","lon","warehouse_id"])
     return pd.DataFrame(res.data)
 
 def save_row(row):
     supabase.table("attendance").insert(row).execute()
+
+def get_nearest_warehouse(lat, lon, warehouse_ids):
+    nearest = None
+    min_dist = float("inf")
+
+    for wid in warehouse_ids:
+        res = (
+            supabase.table("warehouses")
+            .select("id, name, lat, lon")
+            .eq("id", wid)
+            .execute()
+        )
+
+        if not res.data:
+            continue
+
+        wh = res.data[0]
+        if wh["lat"] is None or wh["lon"] is None:
+            continue
+
+        dist = distance_in_meters(
+            lat, lon,
+            float(wh["lat"]),
+            float(wh["lon"])
+        )
+
+        if dist < min_dist:
+            min_dist = dist
+            nearest = {
+                "id": wh["id"],
+                "name": wh["name"],
+                "distance": dist
+            }
+
+    return nearest
 
 # ================= GPS SCRIPT =================
 st.markdown("""
@@ -94,7 +129,7 @@ if "logged" not in st.session_state:
     st.session_state.user = None
     st.session_state.admin = False
 
-st.title("📍 SWISS MILITARY ATTENDANCE SYSTEM (NO PHOTO)")
+st.title("📍 SWISS MILITARY ATTENDANCE SYSTEM")
 
 # ================= LOGIN =================
 if not st.session_state.logged:
@@ -132,37 +167,21 @@ if st.session_state.logged and not st.session_state.admin:
     lon = float(params["lon"][0])
     st.write("GPS:", lat, lon)
 
-    # ===== WAREHOUSE CHECK =====
     warehouse_ids = get_allowed_warehouse_ids(user)
     if not warehouse_ids:
         st.error("❌ Aap kisi warehouse ke liye allowed nahi ho")
         st.stop()
 
-    valid_location = False
+    nearest_wh = get_nearest_warehouse(lat, lon, warehouse_ids)
 
-    for wid in warehouse_ids:
-        res = (
-            supabase.table("warehouses")
-            .select("lat, lon")
-            .eq("id", wid)
-            .execute()
-        )
-
-        if not res.data:
-            continue
-
-        wh = res.data[0]
-        if wh["lat"] is None or wh["lon"] is None:
-            continue
-
-        dist = distance_in_meters(lat, lon, float(wh["lat"]), float(wh["lon"]))
-        if dist <= ALLOWED_DISTANCE:
-            valid_location = True
-            break
-
-    if not valid_location:
-        st.error("❌ Aap allowed warehouse location par nahi ho")
+    if not nearest_wh or nearest_wh["distance"] > ALLOWED_DISTANCE:
+        st.error("❌ Aap allowed warehouse ke paas nahi ho")
         st.stop()
+
+    st.success(
+        f"🏭 Warehouse Detected: {nearest_wh['name']} "
+        f"({int(nearest_wh['distance'])} m)"
+    )
 
     # ===== ATTENDANCE LOGIC =====
     df = load_data()
@@ -191,6 +210,7 @@ if st.session_state.logged and not st.session_state.admin:
                 "time": now_ist().strftime("%H:%M:%S"),
                 "lat": lat,
                 "lon": lon,
+                "warehouse_id": nearest_wh["id"],
             })
             st.success("Punch IN successful")
 
@@ -203,9 +223,9 @@ if st.session_state.logged and not st.session_state.admin:
                 "time": now_ist().strftime("%H:%M:%S"),
                 "lat": lat,
                 "lon": lon,
+                "warehouse_id": nearest_wh["id"],
             })
             st.success("Punch OUT successful")
-
 
 # ================= ADMIN PANEL =================
 if st.session_state.logged and st.session_state.admin:
@@ -266,4 +286,3 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
-
