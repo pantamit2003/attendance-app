@@ -262,7 +262,7 @@ if st.session_state.logged and not st.session_state.admin:
                 "lon": lon,
                 "warehouse_id": nearest_wh["id"],
                 "warehouse_name": nearest_wh["name"],
-                "photo": photo_path,
+                "photo": photo,
             })
             st.success("Punch IN successful")
     
@@ -277,7 +277,7 @@ if st.session_state.logged and not st.session_state.admin:
                 "lon": lon,
                 "warehouse_id": nearest_wh["id"],
                 "warehouse_name": nearest_wh["name"],
-                "photo": photo_path,
+                "photo": photo,
             })
             st.success("Punch OUT successful")
 
@@ -341,6 +341,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
