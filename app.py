@@ -106,6 +106,15 @@ def get_nearest_warehouse(lat, lon, warehouse_ids):
 
     return nearest
 
+def upload_photo(photo, user):
+    filename = f"{user}/{datetime.utcnow().timestamp()}.jpg"
+    supabase.storage.from_("attendance-photos").upload(
+        filename,
+        photo.getvalue(),
+        {"content-type": photo.type}
+    )
+    return filename
+
 # ================= GPS SCRIPT =================
 st.markdown("""
 <script>
@@ -182,6 +191,11 @@ if st.session_state.logged and not st.session_state.admin:
         f"🏭 Warehouse Detected: {nearest_wh['name']} "
         f"({int(nearest_wh['distance'])} m)"
     )
+    
+    photo = st.camera_input("📸 Attendance Photo (Compulsory)")
+    if not photo:
+        st.warning("📸 Photo lena compulsory hai")
+        st.stop()
 
     
     # ===== ATTENDANCE LOGIC =====
@@ -247,6 +261,7 @@ if st.session_state.logged and not st.session_state.admin:
                 "lon": lon,
                 "warehouse_id": nearest_wh["id"],
                 "warehouse_name": nearest_wh["name"],
+                "photo": photo_path
             })
             st.success("Punch IN successful")
     
@@ -261,6 +276,7 @@ if st.session_state.logged and not st.session_state.admin:
                 "lon": lon,
                 "warehouse_id": nearest_wh["id"],
                 "warehouse_name": nearest_wh["name"],
+                "photo": photo_path
             })
             st.success("Punch OUT successful")
 
@@ -324,6 +340,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
