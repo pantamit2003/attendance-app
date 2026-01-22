@@ -183,7 +183,7 @@ if st.session_state.logged and not st.session_state.admin:
         f"({int(nearest_wh['distance'])} m)"
     )
 
-    # ===== ATTENDANCE LOGIC =====
+    
     # ===== ATTENDANCE LOGIC =====
     df = load_data()
     today = now_ist().date()
@@ -211,7 +211,8 @@ if st.session_state.logged and not st.session_state.admin:
     
         punch_in_time = pd.to_datetime(
             today_in_df.iloc[0]["date"] + " " + today_in_df.iloc[0]["time"]
-        )
+        ).tz_localize(IST)
+
     
         now_time = now_ist()
         elapsed = now_time - punch_in_time
@@ -323,6 +324,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
