@@ -222,7 +222,7 @@ if st.session_state.logged and not st.session_state.admin:
     
         st.info(f"⏱️ Working Time: {hours} hours {minutes} minutes")
     
-        SHIFT_HOURS = 8
+        SHIFT_HOURS = 8.5
         worked_hours = elapsed.seconds / 3600
     
         if worked_hours >= SHIFT_HOURS:
@@ -324,6 +324,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
