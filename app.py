@@ -197,6 +197,7 @@ if st.session_state.logged and not st.session_state.admin:
         st.warning("📸 Photo lena compulsory hai")
         st.stop()
 
+    photo_path = None
     
     # ===== ATTENDANCE LOGIC =====
     df = load_data()
@@ -340,6 +341,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
