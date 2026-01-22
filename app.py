@@ -252,8 +252,8 @@ if st.session_state.logged and not st.session_state.admin:
         if st.button("✅ PUNCH IN", disabled=already_in):
             
             if not photo:
-            st.warning("📸 Punch IN ke liye photo compulsory hai")
-            st.stop()
+                st.warning("📸 Punch IN ke liye photo compulsory hai")
+                st.stop()
 
             photo_path = upload_photo(photo, user)
             
@@ -274,8 +274,8 @@ if st.session_state.logged and not st.session_state.admin:
         if st.button("⛔ PUNCH OUT", disabled=not already_in or already_out):
 
             if not photo:
-            st.warning("📸 Punch OUT ke liye photo compulsory hai")
-            st.stop()
+                st.warning("📸 Punch OUT ke liye photo compulsory hai")
+                st.stop()
 
             photo_path = upload_photo(photo, user)
             
@@ -352,6 +352,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
