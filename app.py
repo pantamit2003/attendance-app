@@ -191,6 +191,28 @@ if st.session_state.logged and not st.session_state.admin:
         f"🏭 Warehouse Detected: {nearest_wh['name']} "
         f"({int(nearest_wh['distance'])} m)"
     )
+
+        st.markdown("### 📝 Movement / Expense Remark")
+    
+    remark = st.text_area(
+        "Kaha ja rahe ho / kya kaam hai?",
+        placeholder="Going to Tronica City for delivery"
+    )
+    
+    if st.button("📤 SUBMIT REMARK"):
+        if not remark.strip():
+            st.warning("❌ Remark empty nahi ho sakta")
+            st.stop()
+    
+        supabase.table("remarks").insert({
+            "user_name": user,
+            "remark": remark,
+            "date": today.isoformat(),
+            "created_at": datetime.utcnow().isoformat()
+        }).execute()
+    
+        st.success("✅ Remark saved successfully")
+
     
     photo = st.camera_input("📸 Attendance Photo (Compulsory)")
 
@@ -354,6 +376,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
