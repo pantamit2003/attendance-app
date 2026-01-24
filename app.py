@@ -197,8 +197,8 @@ if st.session_state.logged and not st.session_state.admin:
     st.markdown("### 📝 Movement / Expense Remark")
     
     remark_text = st.text_area(
-        "Kaha ja rahe ho / kya kaam hai?",
-        placeholder="Going to Tronica City for delivery"
+        "ENTER WHERE ARE YOUR GOING?",
+        placeholder="Enter Your Remarks here, and click on Submit Button."
     )
     
     if st.button("💾 SAVE REMARK"):
@@ -379,6 +379,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
