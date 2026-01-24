@@ -194,25 +194,26 @@ if st.session_state.logged and not st.session_state.admin:
 
     # ================= REMARK SECTION =================
     st.markdown("### 📝 Movement / Expense Remark")
-
-    remark = st.text_area(
+    
+    remark_text = st.text_area(
         "Kaha ja rahe ho / kya kaam hai?",
         placeholder="Going to Tronica City for delivery"
     )
-
-    if st.button("📤 SUBMIT REMARK"):
-        if not remark.strip():
-            st.warning("❌ Remark empty nahi ho sakta")
+    
+    if st.button("💾 SAVE REMARK"):
+        if not remark_text.strip():
+            st.warning("❗ Remark empty nahi ho sakta")
             st.stop()
-
-        supabase.table("remarks").insert({
+    
+        supabase.table("attendance_remarks").insert({
             "user_name": user,
-            "remark": remark,
             "date": today.isoformat(),
-            "created_at": datetime.utcnow().isoformat()
+            "time": now_ist().strftime("%H:%M:%S"),
+            "remark": remark_text.strip().upper()
         }).execute()
-
+    
         st.success("✅ Remark saved successfully")
+    
 
     
     photo = st.camera_input("📸 Attendance Photo (Compulsory)")
@@ -377,6 +378,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
