@@ -12,7 +12,7 @@ supabase = create_client(
 )
 
 # ================= CONFIG =================
-ALLOWED_DISTANCE = 800  # meters
+ALLOWED_DISTANCE = 500  # meters
 IST = pytz.timezone("Asia/Kolkata")
 
 USERS = {
@@ -354,6 +354,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
