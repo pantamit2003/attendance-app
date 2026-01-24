@@ -208,7 +208,7 @@ if st.session_state.logged and not st.session_state.admin:
         supabase.table("attendance_remarks").insert({
             "user_name": user,
             "date": today.isoformat(),
-            "time": now_ist().strftime("%H:%M:%S"),
+            "time": datetime.utcnow().strftime("%H:%M:%S"),
             "remark": remark_text.strip().upper()
         }).execute()
     
@@ -378,6 +378,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
