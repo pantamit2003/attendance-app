@@ -373,13 +373,13 @@ if st.session_state.logged and st.session_state.admin:
                     )
 
     with tab3:
-    remarks_res = (
-        supabase
-        .table("attendance_remarks")
-        .select("*")
-        .order("created_at", desc=True)
-        .execute()
-    )
+        remarks_res = (
+            supabase
+            .table("attendance_remarks")
+            .select("*")
+            .order("created_at", desc=True)
+            .execute()
+        )
 
     if not remarks_res.data:
         st.info("📝 No remarks found")
@@ -398,6 +398,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
