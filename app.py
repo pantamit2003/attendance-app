@@ -163,6 +163,7 @@ if not st.session_state.logged:
 # ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
     user = st.session_state.user
+    today = now_ist().date()
     st.subheader(f"👤 Welcome {user}")
 
     st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
@@ -378,6 +379,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
