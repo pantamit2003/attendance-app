@@ -351,7 +351,7 @@ if st.session_state.logged and st.session_state.admin:
             (df["date"].dt.date <= end)
         ]
 
-    tab1, tab2 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos"])
+    tab1, tab2, tab3 = st.tabs(["📊 Attendance Table", "📸 Attendance Photos","📝 Movement / Expense Remarks"])
 
     with tab1:
         if filtered_df.empty:
@@ -372,6 +372,25 @@ if st.session_state.logged and st.session_state.admin:
                         width=220,
                     )
 
+    with tab3:
+    remarks_res = (
+        supabase
+        .table("attendance_remarks")
+        .select("*")
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    if not remarks_res.data:
+        st.info("📝 No remarks found")
+    else:
+        remarks_df = pd.DataFrame(remarks_res.data)
+
+        st.dataframe(
+            remarks_df[["user_name", "date", "time", "remark"]],
+            use_container_width=True
+        )
+
 
 # ================= LOGOUT =================
 if st.session_state.logged:
@@ -379,6 +398,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
