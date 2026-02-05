@@ -169,7 +169,7 @@ if st.session_state.logged and not st.session_state.admin:
 
     st.markdown('<button onclick="getLocation()">📍 Get My Location</button>', unsafe_allow_html=True)
 
-    params = st.experimental_get_query_params()
+    params = st.query_params
     if "lat" not in params or "lon" not in params:
         st.warning("📍 Get location first")
         st.stop()
@@ -399,6 +399,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
