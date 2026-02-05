@@ -138,6 +138,7 @@ function getLocation(){
   );
 }
 </script>
+""", unsafe_allow_html=True)
 
 # ================= SESSION =================
 if "logged" not in st.session_state:
@@ -405,6 +406,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
