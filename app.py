@@ -181,8 +181,8 @@ if st.session_state.logged and not st.session_state.admin:
         st.warning("📍 Get location first")
         st.stop()
 
-    lat = float(params["lat"][0])
-    lon = float(params["lon"][0])
+    lat = float(params["lat"])
+    lon = float(params["lon"])
     st.write("GPS:", lat, lon)
 
     warehouse_ids = get_allowed_warehouse_ids(user)
@@ -404,8 +404,9 @@ if st.session_state.logged and st.session_state.admin:
 if st.session_state.logged:
     if st.button("Logout"):
         st.session_state.clear()
-        st.experimental_set_query_params()
+        st.query_params.clear()
         st.rerun()
+
 
 
 
