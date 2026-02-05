@@ -122,16 +122,22 @@ st.markdown("""
 function getLocation(){
   navigator.geolocation.getCurrentPosition(
     function(pos){
-      const p = new URLSearchParams(window.location.search);
-      p.set("lat", pos.coords.latitude);
-      p.set("lon", pos.coords.longitude);
-      window.location.search = p.toString();
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("lat", lat);
+      url.searchParams.set("lon", lon);
+
+      window.location.href = url.toString();
     },
-    function(){ alert("Location denied"); }
+    function(err){
+      alert("Location error: " + err.message);
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
   );
 }
 </script>
-""", unsafe_allow_html=True)
 
 # ================= SESSION =================
 if "logged" not in st.session_state:
@@ -399,6 +405,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.experimental_set_query_params()
         st.rerun()
+
 
 
 
