@@ -290,8 +290,8 @@ if st.session_state.logged and not st.session_state.admin:
         if st.button("✅ PUNCH IN", disabled=already_in):
 
     with col2:
-    if st.button("⛔ PUNCH OUT", disabled=(not already_in or already_out)):
-        # punch out logic
+        if st.button("⛔ PUNCH OUT", disabled=(not already_in or already_out)):
+            # punch out logic
     
             if not photo:
                 st.warning("📸 Punch IN ke liye photo compulsory hai")
@@ -415,6 +415,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
