@@ -230,24 +230,29 @@ if st.session_state.logged and not st.session_state.admin:
     photo_path = None
     
     # ===== ATTENDANCE LOGIC =====
-    user = st.session_state.user
-        
-    df = load_data()
+    # ===== ATTENDANCE LOGIC (DATE + TIME SAFE VERSION) =====
 
-    df["name"] = df["name"].astype(str).str.strip().str.lower()
-    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-    
     user_clean = st.session_state.user.strip().lower()
     today = now_ist().date()
     
+    df = load_data()
+    
+    # Clean data properly
+    df["name"] = df["name"].astype(str).str.strip().str.lower()
+    df["punch_type"] = df["punch_type"].astype(str).str.strip().str.upper()
+    
+    # IMPORTANT: date ko date type me convert karo
+    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
+    
+    # 👇 Sirf aaj ke records lo
     today_df = df[
         (df["name"] == user_clean) &
-        (df["timestamp"].dt.date == today)
-    ]
-    
-    already_in = (today_df["punch_type"] == "IN").any()
-    already_out = (today_df["punch_type"] == "OUT").any()
+        (df["date"] == today)
+]
 
+# 👇 Ab sirf aaj ka IN/OUT check hoga
+already_in = (today_df["punch_type"] == "IN").any()
+already_out = (today_df["punch_type"] == "OUT").any()
     st.write("User Clean:", user_clean)
     st.write("Today:", today)
     st.write("Filtered Data:")
@@ -423,6 +428,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
