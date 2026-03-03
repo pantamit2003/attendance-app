@@ -233,17 +233,21 @@ if st.session_state.logged and not st.session_state.admin:
     # ===== ATTENDANCE LOGIC =====
     df = load_data()
     today = now_ist().date()
+
+    df["name"] = df["name"].astype(str).str.strip().str.lower()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
+    df["punch_type"] = df["punch_type"].astype(str).str.strip().str.upper()
     
     already_in = (
-        (df["name"].str.lower() == user)
-        & (pd.to_datetime(df["date"]).dt.date == today)
-        & (df["punch_type"] == "IN")
+        (df["name"] == user.lower()) &
+        (df["date"] == today) &
+        (df["punch_type"] == "IN")
     ).any()
     
     already_out = (
-        (df["name"].str.lower() == user)
-        & (pd.to_datetime(df["date"]).dt.date == today)
-        & (df["punch_type"] == "OUT")
+        (df["name"] == user.lower()) &
+        (df["date"] == today) &
+        (df["punch_type"] == "OUT")
     ).any()
     
     # ===== WORK TIMER (ONLY BETWEEN IN & OUT) =====
@@ -284,6 +288,10 @@ if st.session_state.logged and not st.session_state.admin:
     
     with col1:
         if st.button("✅ PUNCH IN", disabled=already_in):
+
+    with col2:
+    if st.button("⛔ PUNCH OUT", disabled=(not already_in or already_out)):
+        # punch out logic
     
             if not photo:
                 st.warning("📸 Punch IN ke liye photo compulsory hai")
@@ -407,6 +415,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
