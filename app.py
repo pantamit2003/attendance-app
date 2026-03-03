@@ -242,7 +242,7 @@ if st.session_state.logged and not st.session_state.admin:
     df["punch_type"] = df["punch_type"].astype(str).str.strip().str.upper()
     
     # IMPORTANT: date ko date type me convert karo
-    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
+    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d", errors="coerce").dt.date
     
     # 👇 Sirf aaj ke records lo
     today_df = df[
@@ -428,6 +428,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
