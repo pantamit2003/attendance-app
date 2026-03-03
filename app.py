@@ -36,7 +36,7 @@ USERS = {
     "ansh": {"password": "1234"},
 }
 
-ADMIN_ = "admin"
+ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
 # ================= HELPERS =================
@@ -442,6 +442,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
