@@ -264,19 +264,7 @@ if st.session_state.logged and not st.session_state.admin:
         (df["date"] == today)
     ]
 
-    # 👇 Ab sirf aaj ka IN/OUT check hoga
-    already_in = (today_df["punch_type"] == "IN").any()
-    already_out = (today_df["punch_type"] == "OUT").any()
-    st.write("User Clean:", user_clean)
-    st.write("Today:", today)
-    st.write("Filtered Data:")
-    st.dataframe(today_df)
-    st.write("already_in:", already_in)
-    st.write("already_out:", already_out)
-
-    st.write("already_in:", already_in)
-    st.write("already_out:", already_out)
-    st.write("today:", today)
+    
     
     
     # ===== WORK TIMER (ONLY BETWEEN IN & OUT) =====
@@ -442,6 +430,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
