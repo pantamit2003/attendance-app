@@ -217,8 +217,7 @@ if st.session_state.logged and not st.session_state.admin:
     
         supabase.table("attendance_remarks").insert({
             "user_name": user,
-            "date": today.isoformat(),
-            "time": datetime.utcnow().strftime("%H:%M:%S"),
+            "timestamp": now_ist().isoformat(),
             "remark": remark_text.strip().upper()
         }).execute()
     
@@ -234,19 +233,16 @@ if st.session_state.logged and not st.session_state.admin:
     user = st.session_state.user
         
     df = load_data()
+
+    df["name"] = df["name"].astype(str).str.strip().str.lower()
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    
+    user_clean = st.session_state.user.strip().lower()
     today = now_ist().date()
     
-    # Clean & normalize data safely
-    df["name"] = df["name"].astype(str).str.strip().str.lower()
-    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
-    df["punch_type"] = df["punch_type"].astype(str).str.strip().str.upper()
-    
-    user_clean = user.strip().lower()
-    
-    # Filter only today's data for this user
     today_df = df[
         (df["name"] == user_clean) &
-        (df["date"] == today)
+        (df["timestamp"].dt.date == today)
     ]
     
     already_in = (today_df["punch_type"] == "IN").any()
@@ -427,6 +423,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
