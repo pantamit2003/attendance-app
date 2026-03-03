@@ -65,9 +65,18 @@ def get_allowed_warehouse_ids(user):
     return [r["warehouse_id"] for r in (res.data or []) if r["warehouse_id"]]
 
 def load_data():
-    res = supabase.table("attendance").select("*").execute()
+    res = (
+        supabase
+        .table("attendance")
+        .select("*")
+        .order("id", desc=True)
+        .limit(5000)
+        .execute()
+    )
+    
     if not res.data:
         return pd.DataFrame(columns=["date","name","punch_type","time","lat","lon","warehouse_id"])
+    
     return pd.DataFrame(res.data)
 
 def save_row(row):
@@ -433,6 +442,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
