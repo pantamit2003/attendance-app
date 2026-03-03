@@ -246,8 +246,8 @@ if st.session_state.logged and not st.session_state.admin:
         (df["date"] == today)
     ]
 
-already_in = (today_df["punch_type"] == "IN").any()
-already_out = (today_df["punch_type"] == "OUT").any()
+    already_in = (today_df["punch_type"] == "IN").any()
+    already_out = (today_df["punch_type"] == "OUT").any()
     
     # 👇 Sirf aaj ke records lo
     today_df = df[
@@ -433,6 +433,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
