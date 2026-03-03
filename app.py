@@ -231,110 +231,111 @@ if st.session_state.logged and not st.session_state.admin:
     photo_path = None
     
     # ===== ATTENDANCE LOGIC =====
+    user = st.session_state.user
+        
+    df = load_data()
+    today = now_ist().date()
     
-df = load_data()
-today = now_ist().date()
-
-# Clean & normalize data safely
-df["name"] = df["name"].astype(str).str.strip().str.lower()
-df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
-df["punch_type"] = df["punch_type"].astype(str).str.strip().str.upper()
-
-user_clean = user.strip().lower()
-
-# Filter only today's data for this user
-today_df = df[
-    (df["name"] == user_clean) &
-    (df["date"] == today)
-]
-
-already_in = (today_df["punch_type"] == "IN").any()
-already_out = (today_df["punch_type"] == "OUT").any()
-
-
-# ===== WORK TIMER (ONLY BETWEEN IN & OUT) =====
-if already_in and not already_out:
-
-    today_in_df = today_df[today_df["punch_type"] == "IN"]
-
-    if not today_in_df.empty:
-        punch_in_time = pd.to_datetime(
-            today_in_df.iloc[0]["date"].strftime("%Y-%m-%d") + " " +
-            today_in_df.iloc[0]["time"]
-        ).tz_localize(IST)
-
-        now_time = now_ist()
-        elapsed = now_time - punch_in_time
-
-        hours = elapsed.seconds // 3600
-        minutes = (elapsed.seconds % 3600) // 60
-
-        st.info(f"⏱️ Working Time: {hours} hours {minutes} minutes")
-
-        SHIFT_HOURS = 8.5
-        worked_hours = elapsed.seconds / 3600
-
-        if worked_hours >= SHIFT_HOURS:
-            st.success("✅ Working hours complete ho chuke hain")
-        else:
-            remaining = SHIFT_HOURS - worked_hours
-            st.warning(f"⌛ {remaining:.1f} hours remaining")
-
-elif already_out:
-    st.success("🛑 Punch OUT ho chuka hai. Aaj ka kaam complete.")
-
-
-# ===== BUTTONS =====
-col1, col2 = st.columns(2)
-
-with col1:
-    if st.button("✅ PUNCH IN", disabled=already_in):
-
-        if not photo:
-            st.warning("📸 Punch IN ke liye photo compulsory hai")
-            st.stop()
-
-        photo_path = upload_photo(photo, user)
-
-        save_row({
-            "date": today.isoformat(),
-            "name": user,
-            "punch_type": "IN",
-            "time": now_ist().strftime("%H:%M:%S"),
-            "lat": lat,
-            "lon": lon,
-            "warehouse_id": nearest_wh["id"],
-            "warehouse_name": nearest_wh["name"],
-            "photo": photo_path,
-        })
-
-        st.success("Punch IN successful")
-        st.rerun()
-
-
-with col2:
-    if st.button("⛔ PUNCH OUT", disabled=(not already_in or already_out)):
-
-        if not photo:
-            st.warning("📸 Punch OUT ke liye photo compulsory hai")
-            st.stop()
-
-        photo_path = upload_photo(photo, user)
-
-        save_row({
-            "date": today.isoformat(),
-            "name": user,
-            "punch_type": "OUT",
-            "time": now_ist().strftime("%H:%M:%S"),
-            "lat": lat,
-            "lon": lon,
-            "warehouse_id": nearest_wh["id"],
-            "warehouse_name": nearest_wh["name"],
-            "photo": photo_path,
-        })
-
-        st.success("Punch OUT successful")
-        st.rerun()
+    # Clean & normalize data safely
+    df["name"] = df["name"].astype(str).str.strip().str.lower()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
+    df["punch_type"] = df["punch_type"].astype(str).str.strip().str.upper()
+    
+    user_clean = user.strip().lower()
+    
+    # Filter only today's data for this user
+    today_df = df[
+        (df["name"] == user_clean) &
+        (df["date"] == today)
+    ]
+    
+    already_in = (today_df["punch_type"] == "IN").any()
+    already_out = (today_df["punch_type"] == "OUT").any()
+    
+    
+    # ===== WORK TIMER (ONLY BETWEEN IN & OUT) =====
+    if already_in and not already_out:
+    
+        today_in_df = today_df[today_df["punch_type"] == "IN"]
+    
+        if not today_in_df.empty:
+            punch_in_time = pd.to_datetime(
+                today_in_df.iloc[0]["date"].strftime("%Y-%m-%d") + " " +
+                today_in_df.iloc[0]["time"]
+            ).tz_localize(IST)
+    
+            now_time = now_ist()
+            elapsed = now_time - punch_in_time
+    
+            hours = elapsed.seconds // 3600
+            minutes = (elapsed.seconds % 3600) // 60
+    
+            st.info(f"⏱️ Working Time: {hours} hours {minutes} minutes")
+    
+            SHIFT_HOURS = 8.5
+            worked_hours = elapsed.seconds / 3600
+    
+            if worked_hours >= SHIFT_HOURS:
+                st.success("✅ Working hours complete ho chuke hain")
+            else:
+                remaining = SHIFT_HOURS - worked_hours
+                st.warning(f"⌛ {remaining:.1f} hours remaining")
+    
+    elif already_out:
+        st.success("🛑 Punch OUT ho chuka hai. Aaj ka kaam complete.")
+    
+    
+    # ===== BUTTONS =====
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("✅ PUNCH IN", disabled=already_in):
+    
+            if not photo:
+                st.warning("📸 Punch IN ke liye photo compulsory hai")
+                st.stop()
+    
+            photo_path = upload_photo(photo, user)
+    
+            save_row({
+                "date": today.isoformat(),
+                "name": user,
+                "punch_type": "IN",
+                "time": now_ist().strftime("%H:%M:%S"),
+                "lat": lat,
+                "lon": lon,
+                "warehouse_id": nearest_wh["id"],
+                "warehouse_name": nearest_wh["name"],
+                "photo": photo_path,
+            })
+    
+            st.success("Punch IN successful")
+            st.rerun()
+    
+    
+    with col2:
+        if st.button("⛔ PUNCH OUT", disabled=(not already_in or already_out)):
+    
+            if not photo:
+                st.warning("📸 Punch OUT ke liye photo compulsory hai")
+                st.stop()
+    
+            photo_path = upload_photo(photo, user)
+    
+            save_row({
+                "date": today.isoformat(),
+                "name": user,
+                "punch_type": "OUT",
+                "time": now_ist().strftime("%H:%M:%S"),
+                "lat": lat,
+                "lon": lon,
+                "warehouse_id": nearest_wh["id"],
+                "warehouse_name": nearest_wh["name"],
+                "photo": photo_path,
+            })
+    
+            st.success("Punch OUT successful")
+            st.rerun()
 
 
 # ================= ADMIN PANEL =================
@@ -415,6 +416,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
