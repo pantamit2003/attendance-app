@@ -36,7 +36,7 @@ USERS = {
     "ansh": {"password": "1234"},
 }
 
-ADMIN_USER = "admin"
+ADMIN_ = "admin"
 ADMIN_PASSWORD = "admin123"
 
 # ================= HELPERS =================
@@ -237,12 +237,17 @@ if st.session_state.logged and not st.session_state.admin:
     
     df = load_data()
     
-    # Clean data properly
     df["name"] = df["name"].astype(str).str.strip().str.lower()
     df["punch_type"] = df["punch_type"].astype(str).str.strip().str.upper()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
     
-    # IMPORTANT: date ko date type me convert karo
-    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d", errors="coerce").dt.date
+    today_df = df[
+        (df["name"] == user_clean) &
+        (df["date"] == today)
+    ]
+
+already_in = (today_df["punch_type"] == "IN").any()
+already_out = (today_df["punch_type"] == "OUT").any()
     
     # 👇 Sirf aaj ke records lo
     today_df = df[
@@ -428,6 +433,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
