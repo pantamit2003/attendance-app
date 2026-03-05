@@ -213,10 +213,10 @@ if st.session_state.logged and not st.session_state.admin:
 
     # ================= REMARK SECTION =================
     st.markdown("### 📝 Movement / Expense Remark")
-    
+
     remark_text = st.text_area(
-        "ENTER WHERE ARE YOUR GOING?",
-        placeholder="Enter Your Remarks here, and click on Save Remarks."
+        "ENTER WHERE YOU ARE GOING?",
+        placeholder="Enter your remarks here, then click Save."
     )
     
     if st.button("💾 SAVE REMARK"):
@@ -227,7 +227,8 @@ if st.session_state.logged and not st.session_state.admin:
         try:
             supabase.table("attendance_remarks").insert({
                 "user_name": user,
-                "timestamp": now_ist().isoformat(),
+                "date": now_ist().date().isoformat(),
+                "time": now_ist().strftime("%H:%M:%S"),
                 "remark": remark_text.strip().upper()
             }).execute()
     
@@ -434,6 +435,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
