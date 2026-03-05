@@ -220,17 +220,21 @@ if st.session_state.logged and not st.session_state.admin:
     )
     
     if st.button("💾 SAVE REMARK"):
-        if not remark_text.strip():
-            st.warning("❗ Remark empty nahi ho sakta")
-            st.stop()
-    
+    if not remark_text.strip():
+        st.warning("❗ Remark empty nahi ho sakta")
+        st.stop()
+
+    try:
         supabase.table("attendance_remarks").insert({
             "user_name": user,
             "timestamp": now_ist().isoformat(),
             "remark": remark_text.strip().upper()
         }).execute()
-    
+
         st.success("✅ Remark saved successfully")
+
+    except Exception as e:
+        st.error(e)
     
 
     
@@ -430,6 +434,7 @@ if st.session_state.logged:
         st.session_state.clear()
         st.query_params.clear()
         st.rerun()
+
 
 
 
