@@ -166,12 +166,39 @@ if not st.session_state.logged:
     if st.button("Login"):
         u = u_raw.strip().lower()
 
+        # 🔥 DEVICE ID GENERATE (yahi add kar)
+        import uuid
+        if "device_id" not in st.session_state:
+            st.session_state.device_id = str(uuid.uuid4())
+
+        current_device = st.session_state.device_id
+
         if u == ADMIN_USER and p == ADMIN_PASSWORD:
             st.session_state.logged = True
             st.session_state.admin = True
             st.rerun()
 
         if u in USERS and USERS[u]["password"] == p:
+
+            if u == "amit":
+                res = supabase.table("user_devices").select("*").eq("user_name", u).execute()
+
+                if not res.data:
+                    # first time → device save
+                    supabase.table("user_devices").insert({
+                        "user_name": u,
+                        "device_id": current_device
+                    }).execute()
+
+                    st.success("✅ Device registered")
+
+                else:
+                    saved_device = res.data[0]["device_id"]
+        
+                    if saved_device != current_device:
+                        st.error("❌ Different device detected")
+                        st.stop()
+
             st.session_state.logged = True
             st.session_state.user = u
             st.rerun()
