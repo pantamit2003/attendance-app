@@ -174,7 +174,8 @@ if not st.session_state.logged:
     p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        u = u_raw.strip().lower()
+        u = (u_raw or "").strip().lower()
+        p = (p or "")
 
     import uuid
 
