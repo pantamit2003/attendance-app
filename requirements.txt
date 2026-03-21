@@ -3,3 +3,4 @@ pandas
 pytz
 Pillow
 supabase
+streamlit-cookies-manager
