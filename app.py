@@ -177,47 +177,47 @@ if not st.session_state.logged:
         u = (u_raw or "").strip().lower()
         p = (p or "")
 
-    import uuid
+        import uuid
 
-    # 🔥 COOKIE BASED DEVICE ID
-    if "device_id" not in cookies:
-        cookies["device_id"] = str(uuid.uuid4())
-        cookies.save()
+        # ✅ COOKIE DEVICE ID
+        if "device_id" not in cookies:
+            cookies["device_id"] = str(uuid.uuid4())
+            cookies.save()
 
-    current_device = cookies["device_id"]
+        current_device = cookies["device_id"]
 
-    # ADMIN
-    if u == ADMIN_USER and p == ADMIN_PASSWORD:
-        st.session_state.logged = True
-        st.session_state.admin = True
-        st.rerun()
+        # ADMIN
+        if u == ADMIN_USER and p == ADMIN_PASSWORD:
+            st.session_state.logged = True
+            st.session_state.admin = True
+            st.rerun()
 
-    # USER LOGIN
-    if u in USERS and USERS[u]["password"] == p:
+        # USER
+        if u in USERS and USERS[u]["password"] == p:
 
-        if u == "amit":
-            res = supabase.table("user_devices").select("*").eq("user_name", u).execute()
+            if u == "amit":
+                res = supabase.table("user_devices").select("*").eq("user_name", u).execute()
 
-            if not res.data:
-                supabase.table("user_devices").upsert({
-                    "user_name": u,
-                    "device_id": current_device
-                }).execute()
+                if not res.data:
+                    supabase.table("user_devices").upsert({
+                        "user_name": u,
+                        "device_id": current_device
+                    }).execute()
 
-                st.success("✅ Device registered")
+                    st.success("✅ Device registered")
 
-            else:
-                saved_device = res.data[0]["device_id"]
+                else:
+                    saved_device = res.data[0]["device_id"]
 
-                if saved_device != current_device:
-                    st.error("❌ Different device detected")
-                    st.stop()
+                    if saved_device != current_device:
+                        st.error("❌ Different device detected")
+                        st.stop()
 
-        st.session_state.logged = True
-        st.session_state.user = u
-        st.rerun()
+            st.session_state.logged = True
+            st.session_state.user = u
+            st.rerun()
 
-    st.error("Invalid credentials")
+        st.error("Invalid credentials")
 
 # ================= USER PANEL =================
 if st.session_state.logged and not st.session_state.admin:
