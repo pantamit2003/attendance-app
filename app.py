@@ -46,6 +46,8 @@ USERS = {
     "ansh": {"password": "1234"},
 }
 
+SECURE_USERS = ["amit", "rahul"]
+
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
@@ -195,7 +197,7 @@ if not st.session_state.logged:
         # USER
         if u in USERS and USERS[u]["password"] == p:
 
-            if u == "amit":
+            if u in SECURE_USERS:
                 res = supabase.table("user_devices").select("*").eq("user_name", u).execute()
 
                 if not res.data:
