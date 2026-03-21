@@ -179,14 +179,24 @@ if not st.session_state.logged:
             st.rerun()
 
         if u in USERS and USERS[u]["password"] == p:
-            # 🔥 FORCE INSERT TEST (yahi daal)
-            if u == "amit":
-                supabase.table("user_devices").insert({
-                    "user_name": u,
-                     "device_id": current_device
-                }).execute()
+             if u == "amit":
+                res = supabase.table("user_devices").select("*").eq("user_name", u).execute()
 
-                st.success("🔥 INSERT HO GAYA")
+                if not res.data:
+                    # first time → save device
+                    supabase.table("user_devices").upsert({
+                        "user_name": u,
+                        "device_id": current_device
+                    }).execute()
+
+                    st.success("✅ Device registered")
+
+                else:
+                    saved_device = res.data[0]["device_id"]
+
+                    if saved_device != current_device:
+                        st.error("❌ Different device detected")
+                        st.stop()
 
             st.session_state.logged = True
             st.session_state.user = u
