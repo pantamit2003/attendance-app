@@ -212,7 +212,7 @@ if not st.session_state.logged:
                     saved_device = res.data[0]["device_id"]
 
                     if saved_device != current_device:
-                        st.error("❌ Different device detected")
+                        st.error("❌ Different device detected, Aap kisi aur mobile se punch in karne ki kosis kar rahe ho.")
                         st.stop()
 
             st.session_state.logged = True
