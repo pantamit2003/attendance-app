@@ -5,6 +5,16 @@ from datetime import datetime
 import math
 from supabase.client import create_client
 
+from streamlit_cookies_manager import EncryptedCookieManager
+
+cookies = EncryptedCookieManager(
+    prefix="my_app",
+    password="super_secret_key"
+)
+
+if not cookies.ready():
+    st.stop()
+
 # ================= SUPABASE =================
 supabase = create_client(
     st.secrets["SUPABASE_URL"],
@@ -167,8 +177,12 @@ if not st.session_state.logged:
         u = u_raw.strip().lower()
 
         import uuid
-        if "device_id" not in st.session_state:
-            st.session_state.device_id = str(uuid.uuid4())
+
+            if "device_id" not in cookies:
+                cookies["device_id"] = str(uuid.uuid4())
+                cookies.save()
+            
+            current_device = cookies["device_id"]
 
         current_device = st.session_state.device_id
 
