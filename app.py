@@ -41,7 +41,6 @@ USERS = {
     "prakashkumarjha": {"password": "1234"},
     "amit": {"password": "1234"},
     "himanshu": {"password": "1234"},
-    "rittin": {"password": "1234"},
     "rahul": {"password": "1234"},
     "ansh": {"password": "1234"},
 }
