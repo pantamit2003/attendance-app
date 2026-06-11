@@ -45,7 +45,7 @@ USERS = {
     "ansh": {"password": "1234"},
 }
 
-SECURE_USERS = ["ansh","amit", "rahul", "ajad","ramniwas","lakshman","prempatil","mithlesh","surjesh","bittu","prakashkumarjha"]
+SECURE_USERS = ["ansh","amit", "rahul", "ajad","ramniwas","lakshman","prempatil","mithlesh","surjesh","bittu"]
 
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
