@@ -38,8 +38,9 @@ USERS = {
     "amit": {"password": "1234"},
     "himanshu": {"password": "1234"},
     "rahul": {"password": "1234"},
+    "ansh": {"password": "1234"},
 }
-SECURE_USERS = ["ansh","rahul","ajad","ramniwas","lakshman","prempatil","mithlesh","surjesh","bittu"]
+SECURE_USERS = ["ansh","amit","rahul","ajad","ramniwas","lakshman","prempatil","mithlesh","surjesh","bittu"]
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin123"
 
@@ -431,12 +432,22 @@ if st.session_state.logged and not st.session_state.admin:
                 st.warning("📸 Punch IN ke liye photo compulsory hai")
                 st.stop()
             photo_path = upload_photo(photo, user)
+            punch_time = now_ist()
             save_row({
                 "date": today.isoformat(), "name": user, "punch_type": "IN",
-                "time": now_ist().strftime("%H:%M:%S"), "lat": lat, "lon": lon,
+                "time": punch_time.strftime("%H:%M:%S"), "lat": lat, "lon": lon,
                 "warehouse_id": nearest_wh["id"], "warehouse_name": nearest_wh["name"], "photo": photo_path,
             })
-            st.success("Punch IN successful")
+            st.balloons()
+            st.markdown(f"""
+            <div style="background:#d4edda;border:1.5px solid #1a7f4b;border-radius:14px;padding:24px;text-align:center;margin:12px 0;">
+              <div style="font-size:48px;margin-bottom:8px;">✅</div>
+              <div style="font-size:22px;font-weight:700;color:#155724;">Punch IN Successful!</div>
+              <div style="font-size:16px;color:#1a7f4b;margin-top:6px;">Welcome, {user.title()}</div>
+              <div style="font-size:14px;color:#6c757d;margin-top:4px;">🕐 {punch_time.strftime("%I:%M %p")} &nbsp;|&nbsp; 🏭 {nearest_wh['name']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            import time; time.sleep(2)
             st.rerun()
 
     with col2:
@@ -445,12 +456,22 @@ if st.session_state.logged and not st.session_state.admin:
                 st.warning("📸 Punch OUT ke liye photo compulsory hai")
                 st.stop()
             photo_path = upload_photo(photo, user)
+            punch_time = now_ist()
             save_row({
                 "date": today.isoformat(), "name": user, "punch_type": "OUT",
-                "time": now_ist().strftime("%H:%M:%S"), "lat": lat, "lon": lon,
+                "time": punch_time.strftime("%H:%M:%S"), "lat": lat, "lon": lon,
                 "warehouse_id": nearest_wh["id"], "warehouse_name": nearest_wh["name"], "photo": photo_path,
             })
-            st.success("Punch OUT successful")
+            st.balloons()
+            st.markdown(f"""
+            <div style="background:#f8d7da;border:1.5px solid #c0392b;border-radius:14px;padding:24px;text-align:center;margin:12px 0;">
+              <div style="font-size:48px;margin-bottom:8px;">👋</div>
+              <div style="font-size:22px;font-weight:700;color:#721c24;">Punch OUT Successful!</div>
+              <div style="font-size:16px;color:#c0392b;margin-top:6px;">Good work today, {user.title()}!</div>
+              <div style="font-size:14px;color:#6c757d;margin-top:4px;">🕐 {punch_time.strftime("%I:%M %p")} &nbsp;|&nbsp; 🏭 {nearest_wh['name']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            import time; time.sleep(2)
             st.rerun()
 
     # My last 7 days summary
