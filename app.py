@@ -39,7 +39,7 @@ USERS = {
     "himanshu": {"password": "1234"},
     "rahul": {"password": "1234"},
     "ansh": {"password": "1234"},
-    "Ranjeet": {"password": "1234"},
+    "Ranj": {"password": "12345"},
 }
 SECURE_USERS = ["ansh","rahul","ajad","ramniwas","lakshman","prempatil","mithlesh"]
 ADMIN_USER = "admin"
